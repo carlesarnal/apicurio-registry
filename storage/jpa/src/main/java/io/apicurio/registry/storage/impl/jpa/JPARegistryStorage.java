@@ -21,7 +21,9 @@ import io.apicurio.registry.content.canon.ContentCanonicalizer;
 import io.apicurio.registry.content.extract.ContentExtractor;
 import io.apicurio.registry.metrics.PersistenceExceptionLivenessApply;
 import io.apicurio.registry.metrics.PersistenceTimeoutReadinessApply;
+import io.apicurio.registry.rest.beans.ArtifactSearchResults;
 import io.apicurio.registry.rest.beans.EditableMetaData;
+import io.apicurio.registry.rest.beans.SearchedArtifact;
 import io.apicurio.registry.storage.ArtifactAlreadyExistsException;
 import io.apicurio.registry.storage.ArtifactMetaDataDto;
 import io.apicurio.registry.storage.ArtifactNotFoundException;
@@ -60,13 +62,7 @@ import static io.apicurio.registry.utils.StringUtil.isEmpty;
 import static java.util.Objects.requireNonNull;
 import static org.eclipse.microprofile.metrics.MetricUnits.MILLISECONDS;
 
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
@@ -231,6 +227,46 @@ public class JPARegistryStorage implements RegistryStorage {
                 mdmu.update(MetaDataKeys.DESCRIPTION, emd.getDescription());
             }
         }
+    }
+
+    private ArtifactSearchResults buildSearchResultFromIds(List<String> artifactIds) {
+
+        final List<ArtifactMetaDataDto> artifactsMetaData = new ArrayList<>();
+        for (String artifactId: artifactIds) {
+
+            artifactsMetaData.add(getArtifactMetaData(artifactId));
+        }
+
+        return buildSearchResultsFromMetaData(artifactsMetaData);
+    }
+
+    private static SearchedArtifact buildFromMetadata(ArtifactMetaDataDto artifactMetaData) {
+
+        final SearchedArtifact searchedArtifact = new SearchedArtifact();
+        searchedArtifact.setId(artifactMetaData.getId());
+        searchedArtifact.setCreatedBy(artifactMetaData.getCreatedBy());
+        searchedArtifact.setCreatedOn(artifactMetaData.getCreatedOn());
+        searchedArtifact.setDescription(artifactMetaData.getDescription());
+        searchedArtifact.setState(artifactMetaData.getState());
+        searchedArtifact.setName(artifactMetaData.getName());
+        //TODO add labels
+
+        return searchedArtifact;
+    }
+
+    private static ArtifactSearchResults buildSearchResultsFromMetaData(List<ArtifactMetaDataDto> artifactsMetaData) {
+
+        final ArtifactSearchResults artifactSearchResults = new ArtifactSearchResults();
+        final List<SearchedArtifact> searchedArtifacts = new ArrayList<>();
+        for (ArtifactMetaDataDto artifactMetaDataDto : artifactsMetaData) {
+
+            SearchedArtifact searchedArtifact = buildFromMetadata(artifactMetaDataDto);
+            searchedArtifacts.add(searchedArtifact);
+        }
+        artifactSearchResults.setArtifacts(searchedArtifacts);
+        artifactSearchResults.setCount(searchedArtifacts.size());
+
+        return artifactSearchResults;
     }
 
     // ========================================================================
@@ -400,6 +436,27 @@ public class JPARegistryStorage implements RegistryStorage {
         } catch (PersistenceException ex) {
             throw new RegistryStorageException(ex);
         }
+    }
+
+    @Override
+    @Transactional
+    public ArtifactSearchResults searchArtifacts(String search, Integer offset,
+            Integer limit) {
+
+        final List<String> matchedArtifacts = entityManager.createQuery(
+                "SELECT m.artifactId FROM MetaData m "
+                        + "WHERE m.version = "
+                        + "(SELECT max(m2.version) "
+                        + "FROM MetaData m2 WHERE m.artifactId = m2.artifactId) "
+                        + "AND ((m.key= 'name' and m.value like :search) "
+                        + "OR (m.key = 'description' and m.value like :search)) "
+                        + "ORDER BY m.id "
+                
+                , String.class)
+                .setParameter("search", search)
+                .getResultList();
+
+        return buildSearchResultFromIds(matchedArtifacts);
     }
 
     // =======================================================
