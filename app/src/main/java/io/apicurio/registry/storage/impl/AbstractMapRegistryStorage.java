@@ -40,7 +40,6 @@ import io.apicurio.registry.types.ArtifactType;
 import io.apicurio.registry.types.RuleType;
 import io.apicurio.registry.types.provider.ArtifactTypeUtilProvider;
 import io.apicurio.registry.types.provider.ArtifactTypeUtilProviderFactory;
-import org.apache.commons.lang3.NotImplementedException;
 
 import static io.apicurio.registry.storage.MetaDataKeys.VERSION;
 import static io.apicurio.registry.utils.StringUtil.isEmpty;
@@ -328,7 +327,7 @@ public abstract class AbstractMapRegistryStorage implements RegistryStorage {
     @Override
     public ArtifactSearchResults searchArtifacts(String search, Integer limit, Integer offset) {
 
-        throw new NotImplementedException("Method not implemented yet for in memory storage");
+        return new ArtifactSearchResults();
     }
 
     /**
