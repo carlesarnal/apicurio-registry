@@ -16,7 +16,7 @@
 
 package io.apicurio.registry;
 
-import static io.restassured.RestAssured.given;
+import static io.apicurio.registry.util.AuthUtil.givenAuthenticated;
 import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.CoreMatchers.anything;
 import static org.hamcrest.Matchers.equalTo;
@@ -33,31 +33,32 @@ import io.restassured.http.ContentType;
 
 /**
  * @author eric.wittmann@gmail.com
+ * @author Carles Arnal <carnalca@redhat.com>
  */
 @QuarkusTest
 public class RulesResourceTest extends AbstractResourceTestBase {
 
     @Test
     public void testGlobalRulesEndpoint() {
-        given()
-            .when()
+        givenAuthenticated()
+                .when()
                 .contentType(CT_JSON)
                 .get("/rules")
             .then()
                 .statusCode(200)
                 .body(anything());
     }
-    
+
     @Test
     public void testGlobalRules() throws Exception {
         this.createArtifact(this.generateArtifactId(), ArtifactType.JSON, "{}");
-        
+
         // Add a global rule
         Rule rule = new Rule();
         rule.setType(RuleType.VALIDITY);
         rule.setConfig("FULL");
-        given()
-            .when()
+        givenAuthenticated()
+                .when()
                 .contentType(CT_JSON).body(rule)
                 .post("/rules")
             .then()
@@ -66,8 +67,8 @@ public class RulesResourceTest extends AbstractResourceTestBase {
 
         // Verify the rule was added.
         TestUtils.retry(() -> {
-            given()
-                .when()
+            givenAuthenticated()
+                    .when()
                     .get("/rules/VALIDITY")
                 .then()
                     .statusCode(200)
@@ -75,11 +76,11 @@ public class RulesResourceTest extends AbstractResourceTestBase {
                     .body("type", equalTo("VALIDITY"))
                     .body("config", equalTo("FULL"));
         });
-        
+
         // Try to add the rule again - should get a 409
         TestUtils.retry(() -> {
-            given()
-                .when()
+            givenAuthenticated()
+                    .when()
                     .contentType(CT_JSON).body(rule)
                     .post("/rules")
                 .then()
@@ -87,12 +88,12 @@ public class RulesResourceTest extends AbstractResourceTestBase {
                     .body("error_code", equalTo(409))
                     .body("message", equalTo("A rule named 'VALIDITY' already exists."));
         });
-        
+
         // Add another global rule
         rule.setType(RuleType.COMPATIBILITY);
         rule.setConfig("BACKWARD");
-        given()
-            .when()
+        givenAuthenticated()
+                .when()
                 .contentType(CT_JSON)
                 .body(rule)
                 .post("/rules")
@@ -102,8 +103,8 @@ public class RulesResourceTest extends AbstractResourceTestBase {
 
         // Get the list of rules (should be 2 of them)
         TestUtils.retry(() -> {
-            given()
-                .when()
+            givenAuthenticated()
+                    .when()
                     .get("/rules")
                 .then()
                     .statusCode(200)
@@ -112,10 +113,10 @@ public class RulesResourceTest extends AbstractResourceTestBase {
                     .body("[1]", anyOf(equalTo("VALIDITY"), equalTo("COMPATIBILITY")))
                     .body("[2]", nullValue());
         });
-        
+
         // Get a single rule by name
-        given()
-            .when()
+        givenAuthenticated()
+                .when()
                 .get("/rules/COMPATIBILITY")
             .then()
                 .statusCode(200)
@@ -126,8 +127,8 @@ public class RulesResourceTest extends AbstractResourceTestBase {
         // Update a rule's config
         rule.setType(RuleType.COMPATIBILITY);
         rule.setConfig("FULL");
-        given()
-            .when()
+        givenAuthenticated()
+                .when()
                 .contentType(CT_JSON)
                 .body(rule)
                 .put("/rules/COMPATIBILITY")
@@ -139,8 +140,8 @@ public class RulesResourceTest extends AbstractResourceTestBase {
 
         // Get a single (updated) rule by name
         TestUtils.retry(() -> {
-            given()
-                .when()
+            givenAuthenticated()
+                    .when()
                     .get("/rules/COMPATIBILITY")
                 .then()
                     .statusCode(200)
@@ -152,7 +153,7 @@ public class RulesResourceTest extends AbstractResourceTestBase {
         // Try to update a rule's config for a rule that doesn't exist.
 //        rule.setType("RuleDoesNotExist");
 //        rule.setConfig("rdne-config");
-//        given()
+//        givenAuthenticated()
 //            .when().contentType(CT_JSON).body(rule).put("/rules/RuleDoesNotExist")
 //            .then()
 //            .statusCode(404)
@@ -161,8 +162,8 @@ public class RulesResourceTest extends AbstractResourceTestBase {
 //            .body("message", equalTo("No rule named 'RuleDoesNotExist' was found."));
 
         // Delete a rule
-        given()
-            .when()
+        givenAuthenticated()
+                .when()
                 .delete("/rules/COMPATIBILITY")
             .then()
                 .statusCode(204)
@@ -170,8 +171,8 @@ public class RulesResourceTest extends AbstractResourceTestBase {
 
         // Get a single (deleted) rule by name (should fail with a 404)
         TestUtils.retry(() -> {
-            given()
-                .when()
+            givenAuthenticated()
+                    .when()
                     .get("/rules/COMPATIBILITY")
                 .then()
                     .statusCode(404)
@@ -182,8 +183,8 @@ public class RulesResourceTest extends AbstractResourceTestBase {
 
         // Get the list of rules (should be 1 of them)
         TestUtils.retry(() -> {
-            given()
-                .when()
+            givenAuthenticated()
+                    .when()
                     .get("/rules")
                 .then()
                 .log().all()
@@ -194,16 +195,16 @@ public class RulesResourceTest extends AbstractResourceTestBase {
         });
 
         // Delete all rules
-        given()
-            .when()
+        givenAuthenticated()
+                .when()
                 .delete("/rules")
             .then()
                 .statusCode(204);
 
         // Get the list of rules (no rules now)
         TestUtils.retry(() -> {
-            given()
-                .when()
+            givenAuthenticated()
+                    .when()
                     .get("/rules")
                 .then()
                     .statusCode(200)
@@ -212,8 +213,8 @@ public class RulesResourceTest extends AbstractResourceTestBase {
         });
 
         // Get the other (deleted) rule by name (should fail with a 404)
-        given()
-            .when()
+        givenAuthenticated()
+                .when()
                 .get("/rules/VALIDITY")
             .then()
                 .statusCode(404)
@@ -229,19 +230,19 @@ public class RulesResourceTest extends AbstractResourceTestBase {
         Rule rule = new Rule();
         rule.setType(RuleType.VALIDITY);
         rule.setConfig("FULL");
-        given()
-            .when()
+        givenAuthenticated()
+                .when()
                 .contentType(CT_JSON)
                 .body(rule)
                 .post("/rules")
             .then()
                 .statusCode(204)
                 .body(anything());
-        
+
         // Get a single rule by name
         TestUtils.retry(() -> {
-            given()
-                .when()
+            givenAuthenticated()
+                    .when()
                     .get("/rules/VALIDITY")
                 .then()
                     .statusCode(200)
@@ -251,16 +252,16 @@ public class RulesResourceTest extends AbstractResourceTestBase {
         });
 
         // Delete all rules
-        given()
-            .when()
+        givenAuthenticated()
+                .when()
                 .delete("/rules")
             .then()
                 .statusCode(204);
 
         // Get the (deleted) rule by name (should fail with a 404)
         TestUtils.retry(() -> {
-            given()
-                .when()
+            givenAuthenticated()
+                    .when()
                     .get("/rules/VALIDITY")
                 .then()
                     .statusCode(404)
