@@ -16,6 +16,7 @@
 
 package io.apicurio.registry.client;
 
+import io.apicurio.registry.client.auth.AuthConfig;
 import io.apicurio.registry.rest.Headers;
 import io.apicurio.registry.rest.beans.ArtifactMetaData;
 import io.apicurio.registry.rest.beans.VersionMetaData;
@@ -42,8 +43,21 @@ public class RegistryClient {
                                                                  .build();
     }
 
+
+    public static RegistryService create(String baseUrl, AuthConfig authConfig) {
+        return new GenericClient.Builder<>(RegistryService.class).setBaseUrl(baseUrl)
+                .setCustomMethods(RegistryClient::handleReset)
+                .setAuth(authConfig)
+                .setResultConsumer(RegistryClient::handleResult)
+                .build();
+    }
+
     public static RegistryService cached(String baseUrl) {
         return cached(create(baseUrl));
+    }
+
+    public static RegistryService cached(String baseUrl, AuthConfig authConfig) {
+        return cached(create(baseUrl,authConfig));
     }
 
     public static RegistryService cached(RegistryService delegate) {
@@ -80,4 +94,5 @@ public class RegistryClient {
             log.warning(String.format("Artifact %s [%s] is deprecated", artifactId, version));
         }
     }
+
 }
