@@ -16,6 +16,21 @@
 
 package io.apicurio.registry;
 
+import static io.apicurio.registry.utils.tests.TestUtils.retry;
+
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Supplier;
+
+import io.apicurio.registry.auth.KeycloakResourceManager;
+import io.quarkus.test.common.QuarkusTestResource;
+import org.junit.jupiter.api.Assertions;
+
 import io.apicurio.registry.client.RegistryService;
 import io.apicurio.registry.rest.beans.ArtifactMetaData;
 import io.apicurio.registry.rest.beans.ArtifactSearchResults;
@@ -45,6 +60,7 @@ import static io.apicurio.registry.utils.tests.TestUtils.retry;
  * @author Ales Justin
  */
 @QuarkusTest
+@QuarkusTestResource(KeycloakResourceManager.class)
 public class RegistryClientTest extends AbstractResourceTestBase {
 
     @RegistryServiceTest
