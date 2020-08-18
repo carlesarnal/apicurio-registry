@@ -191,8 +191,9 @@ public class RegistryServiceExtension implements TestTemplateInvocationContextPr
                                     wrapper.service = createRegistryService();
                                 } else {
                                     Class<?> clientClass = tccl.loadClass(RegistryClient.class.getName());
-                                    Method factoryMethod = clientClass.getMethod(wrapper.method, String.class);
-                                    wrapper.service = (AutoCloseable) factoryMethod.invoke(null, wrapper.registryUrl);
+                                    Class<?> authConfigClass = tccl.loadClass(AuthConfig.class.getName());
+                                    Method factoryMethod = clientClass.getMethod(wrapper.method, String.class, authConfigClass);
+                                    wrapper.service = (AutoCloseable) factoryMethod.invoke(null, wrapper.registryUrl, wrapper.authConfig);
                                 }
                             } catch (Exception e) {
                                 throw new IllegalStateException(e);
