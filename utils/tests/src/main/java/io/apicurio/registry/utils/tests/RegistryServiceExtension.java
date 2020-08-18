@@ -26,6 +26,7 @@ import org.junit.platform.commons.util.AnnotationUtils;
 
 import java.lang.reflect.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -192,8 +193,17 @@ public class RegistryServiceExtension implements TestTemplateInvocationContextPr
                                 } else {
                                     Class<?> clientClass = tccl.loadClass(RegistryClient.class.getName());
                                     Class<?> authConfigClass = tccl.loadClass(AuthConfig.class.getName());
+                                    Class<?> authProviderClass = tccl.loadClass(AuthProvider.class.getName());
+                                    Enum authProvider = (Enum) Arrays.stream(authProviderClass.getEnumConstants())
+                                            .filter(e -> e.toString().equals(TestUtils.KEYCLOAK))
+                                            .findAny().orElseThrow(() -> new IllegalStateException("auth provider not found"));
+
+                                    Constructor<?> authConfigCtr = authConfigClass.getConstructor(String.class, String.class, String.class, String.class, String.class, String.class, authProviderClass);
+                                    Object authConfig =  authConfigCtr
+                                            .newInstance(TestUtils.KEYCLOAK_AUTH_URL, TestUtils.REGISTRY, TestUtils.ADMIN, TestUtils.ADMIN, TestUtils.REGISTRY_API, TestUtils.SECRET, authProvider);
+
                                     Method factoryMethod = clientClass.getMethod(wrapper.method, String.class, authConfigClass);
-                                    wrapper.service = (AutoCloseable) factoryMethod.invoke(null, wrapper.registryUrl, wrapper.authConfig);
+                                    wrapper.service = (AutoCloseable) factoryMethod.invoke(null, wrapper.registryUrl, authConfig);
                                 }
                             } catch (Exception e) {
                                 throw new IllegalStateException(e);
