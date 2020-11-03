@@ -808,6 +808,12 @@
             </modules>
         </profile>
         <profile>
+            <id>mongodb</id>
+            <modules>
+                <module>storage/mongodb</module>
+            </modules>
+        </profile>
+        <profile>
             <id>prod</id>
             <activation>
                 <activeByDefault>false</activeByDefault>
