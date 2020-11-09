@@ -64,7 +64,6 @@ import org.slf4j.LoggerFactory;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -134,7 +133,10 @@ public class MongoDbRegistryStorage implements RegistryStorage {
             ArtifactTypeUtilProvider provider = factory.getArtifactTypeProvider(artifactType);
             ContentExtractor extractor = provider.getContentExtractor();
             EditableMetaData emd = extractor.extract(content);
-            EditableArtifactMetaDataDto metaData = new EditableArtifactMetaDataDto(emd.getName(), emd.getDescription(), emd.getLabels(), emd.getProperties());
+            EditableArtifactMetaDataDto metaData = null;
+            if (emd != null) {
+                 metaData = new EditableArtifactMetaDataDto(emd.getName(), emd.getDescription(), emd.getLabels(), emd.getProperties());
+            }
 
             ArtifactMetaDataDto amdd = createArtifactInternal(artifactId, artifactType, content,
                     createdBy, createdOn, metaData);
@@ -172,20 +174,20 @@ public class MongoDbRegistryStorage implements RegistryStorage {
         String canonicalContentHash = DigestUtils.sha256Hex(canonicalContentBytes);
 
         final Content content = contentRepository.upsertContentByHash(contentHash, contentBytes, canonicalContentHash);
-        final Version version = versionRepository.createVersion(firstVersion, artifact, name, description, state, createdBy, createdOn, labelsStr, propertiesStr, content);
+        final Version version = versionRepository.createVersion(firstVersion, artifact.getArtifactId(), name, description, state, createdBy, createdOn, labelsStr, propertiesStr, content.id, artifact.id);
 
-        labelRepository.persistLabels(labels, version);
+        labelRepository.persistLabels(labels, version.id.toHexString());
         propertyRepository.persistProperties(properties, version);
 
         //TODO extract
         final ArtifactVersionMetaDataDto artifactVersionMetaDataDto = new ArtifactVersionMetaDataDto();
-        artifactVersionMetaDataDto.setVersion(version.version.intValue());
-        artifactVersionMetaDataDto.setCreatedBy(version.createdBy);
-        artifactVersionMetaDataDto.setCreatedOn(Instant.from(version.createdOn).toEpochMilli());
-        artifactVersionMetaDataDto.setDescription(version.description);
-        artifactVersionMetaDataDto.setGlobalId(version.globalId);
-        artifactVersionMetaDataDto.setName(version.name);
-        artifactVersionMetaDataDto.setState(ArtifactState.fromValue(version.state));
+        artifactVersionMetaDataDto.setVersion(version.getVersion().intValue());
+        artifactVersionMetaDataDto.setCreatedBy(version.getCreatedBy());
+        artifactVersionMetaDataDto.setCreatedOn(version.getCreatedOn());
+        artifactVersionMetaDataDto.setDescription(version.getDescription());
+        artifactVersionMetaDataDto.setGlobalId(version.getGlobalId());
+        artifactVersionMetaDataDto.setName(version.getName());
+        artifactVersionMetaDataDto.setState(ArtifactState.fromValue(version.getState()));
         artifactVersionMetaDataDto.setType(artifactType);
 
         return artifactVersionMetaDataDto;
@@ -213,11 +215,12 @@ public class MongoDbRegistryStorage implements RegistryStorage {
         logger.debug("Selecting a single artifact (latest version) by artifactId: {}", artifactId);
 
         final Version version = versionRepository.getArtifactLatestVersion(artifactId);
+        final Content content = contentRepository.findById(version.getContentId());
 
         return StoredArtifact.builder()
-                .content(ContentHandle.create(version.content.content))
-                .globalId(version.globalId)
-                .version(version.version)
+                .content(ContentHandle.create(content.getContent()))
+                .globalId(version.getGlobalId())
+                .version(version.getVersion())
                 .build();
     }
 
@@ -243,7 +246,7 @@ public class MongoDbRegistryStorage implements RegistryStorage {
         logger.debug("Searching for artifacts: {} over {} with {} ordering", search, searchOver, sortOrder);
 
         try {
-            return versionRepository.searchArtifacts(search, offset, limit, searchOver, sortOrder);
+            return artifactRepository.searchArtifacts(search, offset, limit, searchOver, sortOrder);
         } catch (Exception e) {
             throw new RegistryStorageException(e);
         }
@@ -263,7 +266,8 @@ public class MongoDbRegistryStorage implements RegistryStorage {
      */
     private ArtifactMetaDataDto getLatestArtifactMetaDataInternal(String artifactId) {
 
-        final ArtifactMetaData metaData = versionRepository.getArtifactMetadata(artifactId);
+        final Artifact artifact = artifactRepository.findByArtifactId(artifactId);
+        final ArtifactMetaData metaData = artifactRepository.getArtifactMetadata(artifact);
         final ArtifactMetaDataDto dto = new ArtifactMetaDataDto();
 
         dto.setDescription(metaData.getDescription());
@@ -292,11 +296,11 @@ public class MongoDbRegistryStorage implements RegistryStorage {
         final Version metaData = versionRepository.getVersion(artifactId, version);
         final ArtifactVersionMetaDataDto dto = new ArtifactVersionMetaDataDto();
 
-        dto.setDescription(metaData.description);
-        dto.setGlobalId(metaData.globalId);
-        dto.setName(metaData.name);
-        dto.setState(ArtifactState.fromValue(metaData.state));
-        dto.setVersion(metaData.version.intValue());
+        dto.setDescription(metaData.getDescription());
+        dto.setGlobalId(metaData.getGlobalId());
+        dto.setName(metaData.getName());
+        dto.setState(ArtifactState.fromValue(metaData.getState()));
+        dto.setVersion(metaData.getVersion().intValue());
 
         return dto;
     }
@@ -311,14 +315,14 @@ public class MongoDbRegistryStorage implements RegistryStorage {
     public ArtifactMetaDataDto getArtifactMetaData(long id) throws ArtifactNotFoundException, RegistryStorageException {
         logger.debug("Getting meta-data for globalId: {}", id);
 
-        final Version metaData = versionRepository.getVersion(id);
+        final Version metaData = versionRepository.findByGlobalId(id);
         final ArtifactMetaDataDto dto = new ArtifactMetaDataDto();
 
-        dto.setDescription(metaData.description);
-        dto.setGlobalId(metaData.globalId);
-        dto.setName(metaData.name);
-        dto.setState(ArtifactState.fromValue(metaData.state));
-        dto.setVersion(metaData.version.intValue());
+        dto.setDescription(metaData.getDescription());
+        dto.setGlobalId(metaData.getGlobalId());
+        dto.setName(metaData.getName());
+        dto.setState(ArtifactState.fromValue(metaData.getState()));
+        dto.setVersion(metaData.getVersion().intValue());
 
         return dto;
     }
@@ -373,12 +377,13 @@ public class MongoDbRegistryStorage implements RegistryStorage {
     public StoredArtifact getArtifactVersion(long id) throws ArtifactNotFoundException, RegistryStorageException {
         logger.debug("Selecting a single artifact version by globalId: {}", id);
 
-        final Version version = versionRepository.findById(id);
+        final Version version = versionRepository.findByGlobalId(id);
+        final Content content = contentRepository.findById(version.getContentId());
 
         return StoredArtifact.builder()
-                .content(ContentHandle.create(version.content.content))
+                .content(ContentHandle.create(content.getContent()))
                 .globalId(id)
-                .version(version.version)
+                .version(version.getVersion())
                 .build();
     }
 
@@ -388,11 +393,12 @@ public class MongoDbRegistryStorage implements RegistryStorage {
         logger.debug("Selecting a single artifact version by artifactId: {} and version {}", artifactId, numVersion);
 
         final Version version = versionRepository.getVersion(artifactId, numVersion);
+        final Content content = contentRepository.findById(version.getContentId());
 
         return StoredArtifact.builder()
-                .content(ContentHandle.create(version.content.content))
-                .globalId(version.globalId)
-                .version(version.version)
+                .content(ContentHandle.create(content.getContent()))
+                .globalId(version.getGlobalId())
+                .version(version.getVersion())
                 .build();
     }
 
@@ -467,7 +473,7 @@ public class MongoDbRegistryStorage implements RegistryStorage {
     private ArtifactMetaDataDto createArtifactInternal(String artifactId, ArtifactType artifactType,
                                                        ContentHandle content, String createdBy, Date createdOn, EditableArtifactMetaDataDto metaData) {
 
-        final Artifact artifact = new Artifact(artifactId, artifactType.name(), null, LocalDate.now(), null);
+        final Artifact artifact = new Artifact(artifactId, artifactType.name(), null, Instant.now().toEpochMilli(), null);
 
         artifactRepository.persist(artifact);
 
@@ -476,7 +482,7 @@ public class MongoDbRegistryStorage implements RegistryStorage {
                 metaData.getName(), metaData.getDescription(), metaData.getLabels(), metaData.getProperties(), content);
 
         // Update the "latest" column in the artifacts table with the globalId of the new version
-        artifactRepository.updateLatestVersion(artifactId, vmdd.getGlobalId());
+        artifactRepository.updateLatestVersion(artifact, vmdd.getGlobalId());
 
         // Return the new artifact meta-data
         ArtifactMetaDataDto amdd = versionToArtifactDto(artifactId, vmdd);

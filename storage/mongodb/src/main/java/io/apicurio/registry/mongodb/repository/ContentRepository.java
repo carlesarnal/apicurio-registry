@@ -29,21 +29,16 @@ public class ContentRepository implements PanacheMongoRepository<Content> {
 
         return findByHash(contentHash)
                 .map(foundContent -> {
-
-                    foundContent.canonicalHash = canonicalContentHash;
-                    foundContent.content = contentBytes;
-                    foundContent.contentHash = contentHash;
-                    persist(foundContent);
+                    foundContent.setCanonicalHash(canonicalContentHash);
+                    foundContent.setContent(contentBytes);
+                    foundContent.setContentHash(contentHash);
+                    update(foundContent);
 
                     return foundContent;
                 }).orElseGet(() -> {
 
-                    final Content content = new Content();
-                    content.contentHash = contentHash;
-                    content.content = contentBytes;
-                    content.canonicalHash = canonicalContentHash;
+                    final Content content = new Content(canonicalContentHash, contentHash, contentBytes);
                     persist(content);
-
                     return content;
                 });
     }

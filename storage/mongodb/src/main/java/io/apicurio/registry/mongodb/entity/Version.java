@@ -16,38 +16,147 @@
 
 package io.apicurio.registry.mongodb.entity;
 
-import io.quarkus.mongodb.panache.PanacheMongoEntityBase;
-import org.bson.codecs.pojo.annotations.BsonId;
+import io.quarkus.mongodb.panache.PanacheMongoEntity;
+import org.bson.types.ObjectId;
 
-import java.time.LocalDate;
-import java.util.Set;
 
-public class Version extends PanacheMongoEntityBase {
+public class Version extends PanacheMongoEntity {
 
-    @BsonId
-    public Long globalId;
+    private Long globalId;
 
-    public Content content;
+    private ObjectId contentId;
 
-    public Artifact artifact;
+    private String artifactId;
 
-    public Long version;
+    private Long version;
 
-    public String state;
+    private String state;
 
-    public String name;
+    private String name;
 
-    public String description;
+    private String description;
 
-    public String createdBy;
+    private String createdBy;
 
-    public LocalDate createdOn;
+    private Long createdOn;
 
-    public Set<Label> labels;
+    private String labelsStr;
 
-    public Set<Label> properties;
+    private String propertiesStr;
 
-    public String labelsStr;
+    private ObjectId referencedArtifact;
 
-    public String propertiesStr;
+    public Version() {
+    }
+
+    public Version(Long globalId, ObjectId contentId, String artifactId, Long version, String state, String name, String description, String createdBy, Long createdOn, String labelsStr, String propertiesStr, ObjectId referencedArtifact) {
+        this.globalId = globalId;
+        this.contentId = contentId;
+        this.artifactId = artifactId;
+        this.version = version;
+        this.state = state;
+        this.name = name;
+        this.description = description;
+        this.createdBy = createdBy;
+        this.createdOn = createdOn;
+        this.labelsStr = labelsStr;
+        this.propertiesStr = propertiesStr;
+        this.referencedArtifact = referencedArtifact;
+    }
+
+    public Long getGlobalId() {
+        return globalId;
+    }
+
+    public void setGlobalId(Long globalId) {
+        this.globalId = globalId;
+    }
+
+    public ObjectId getContentId() {
+        return contentId;
+    }
+
+    public void setContentId(ObjectId contentId) {
+        this.contentId = contentId;
+    }
+
+    public String getArtifactId() {
+        return artifactId;
+    }
+
+    public void setArtifactId(String artifactId) {
+        this.artifactId = artifactId;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
+    }
+
+    public String getState() {
+        return state;
+    }
+
+    public void setState(String state) {
+        this.state = state;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public String getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public Long getCreatedOn() {
+        return createdOn;
+    }
+
+    public void setCreatedOn(Long createdOn) {
+        this.createdOn = createdOn;
+    }
+
+    public String getLabelsStr() {
+        return labelsStr;
+    }
+
+    public void setLabelsStr(String labelsStr) {
+        this.labelsStr = labelsStr;
+    }
+
+    public String getPropertiesStr() {
+        return propertiesStr;
+    }
+
+    public void setPropertiesStr(String propertiesStr) {
+        this.propertiesStr = propertiesStr;
+    }
+
+    public ObjectId getReferencedArtifact() {
+        return referencedArtifact;
+    }
+
+    public void setReferencedArtifact(ObjectId referencedArtifact) {
+        this.referencedArtifact = referencedArtifact;
+    }
 }

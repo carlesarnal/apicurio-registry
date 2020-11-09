@@ -17,20 +17,19 @@
 package io.apicurio.registry.mongodb.repository;
 
 import io.apicurio.registry.mongodb.entity.Label;
-import io.apicurio.registry.mongodb.entity.Version;
 import io.quarkus.mongodb.panache.PanacheMongoRepository;
 
+import javax.enterprise.context.ApplicationScoped;
 import java.util.List;
 
+@ApplicationScoped
 public class LabelRepository implements PanacheMongoRepository<Label> {
 
-    public void persistLabels(List<String> labels, Version version) {
+    public void persistLabels(List<String> labels, String versionId) {
         if (labels != null && !labels.isEmpty()) {
             labels.forEach(labelStr -> {
 
-                Label label = new Label();
-                label.label = labelStr;
-                label.version = version;
+                Label label = new Label(versionId, labelStr);
                 persist(label);
             });
         }

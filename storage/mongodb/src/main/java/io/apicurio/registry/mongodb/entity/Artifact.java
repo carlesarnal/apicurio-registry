@@ -16,30 +16,83 @@
 
 package io.apicurio.registry.mongodb.entity;
 
-import io.quarkus.mongodb.panache.PanacheMongoEntityBase;
-import org.bson.codecs.pojo.annotations.BsonId;
+import io.quarkus.mongodb.panache.MongoEntity;
+import io.quarkus.mongodb.panache.PanacheMongoEntity;
 
-import java.time.LocalDate;
+import java.util.List;
 
-public class Artifact extends PanacheMongoEntityBase {
+@MongoEntity(collection = "Artifacts")
+public class Artifact extends PanacheMongoEntity {
 
-    @BsonId
-    public String artifactId;
+    private String artifactId;
 
-    public String artifactType;
+    private String artifactType;
 
-    public String createdBy;
+    private String createdBy;
 
-    public LocalDate createdOn;
+    private Long createdOn;
 
-    public Long latest;
+    private Long latest;
 
-    public Artifact(String artifactId, String artifactType, String createdBy, LocalDate createdOn, Long latest) {
+    private List<Version> versions;
+
+    public Artifact() {
+    }
+
+    public Artifact(String artifactId, String artifactType, String createdBy, Long createdOn, Long latest) {
         this.artifactId = artifactId;
         this.artifactType = artifactType;
         this.createdBy = createdBy;
         this.createdOn = createdOn;
         this.latest = latest;
+    }
+
+    public String getArtifactId() {
+        return artifactId;
+    }
+
+    public void setArtifactId(String artifactId) {
+        this.artifactId = artifactId;
+    }
+
+    public String getArtifactType() {
+        return artifactType;
+    }
+
+    public void setArtifactType(String artifactType) {
+        this.artifactType = artifactType;
+    }
+
+    public String getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public Long getCreatedOn() {
+        return createdOn;
+    }
+
+    public void setCreatedOn(Long createdOn) {
+        this.createdOn = createdOn;
+    }
+
+    public Long getLatest() {
+        return latest;
+    }
+
+    public void setLatest(Long latest) {
+        this.latest = latest;
+    }
+
+    public List<Version> getVersions() {
+        return versions;
+    }
+
+    public void setVersions(List<Version> versions) {
+        this.versions = versions;
     }
 }
 

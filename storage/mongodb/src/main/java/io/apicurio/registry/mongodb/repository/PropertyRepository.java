@@ -31,10 +31,7 @@ public class PropertyRepository implements PanacheMongoRepository<Property> {
         if (properties != null && !properties.isEmpty()) {
             properties.forEach((k, v) -> {
 
-                Property property = new Property();
-                property.pkey = k;
-                property.pvalue = v;
-                property.version = version;
+                Property property = new Property(version.id, k, v);
                 persist(property);
             });
         }

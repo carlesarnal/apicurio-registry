@@ -16,17 +16,46 @@
 
 package io.apicurio.registry.mongodb.entity;
 
-import io.quarkus.mongodb.panache.PanacheMongoEntityBase;
-import org.bson.codecs.pojo.annotations.BsonId;
+import io.quarkus.mongodb.panache.PanacheMongoEntity;
 
-public class Content extends PanacheMongoEntityBase {
+public class Content extends PanacheMongoEntity {
 
-    @BsonId
-    public Long contentId;
+    private String canonicalHash;
 
-    public String canonicalHash;
+    private String contentHash;
 
-    public String contentHash;
+    private byte[] content;
 
-    public byte[] content;
+    public Content() {
+    }
+
+    public Content(String canonicalHash, String contentHash, byte[] content) {
+        this.canonicalHash = canonicalHash;
+        this.contentHash = contentHash;
+        this.content = content;
+    }
+
+    public String getCanonicalHash() {
+        return canonicalHash;
+    }
+
+    public void setCanonicalHash(String canonicalHash) {
+        this.canonicalHash = canonicalHash;
+    }
+
+    public String getContentHash() {
+        return contentHash;
+    }
+
+    public void setContentHash(String contentHash) {
+        this.contentHash = contentHash;
+    }
+
+    public byte[] getContent() {
+        return content;
+    }
+
+    public void setContent(byte[] content) {
+        this.content = content;
+    }
 }
