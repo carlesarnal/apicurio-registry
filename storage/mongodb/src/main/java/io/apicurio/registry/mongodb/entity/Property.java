@@ -20,7 +20,7 @@ import io.quarkus.mongodb.panache.MongoEntity;
 import io.quarkus.mongodb.panache.PanacheMongoEntity;
 import org.bson.types.ObjectId;
 
-@MongoEntity(collection = "Artifacts")
+@MongoEntity(collection = "property")
 public class Property extends PanacheMongoEntity {
 
     public ObjectId versionId;

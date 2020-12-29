@@ -16,5 +16,57 @@
 
 package io.apicurio.registry.mongodb.entity;
 
+
+import io.quarkus.mongodb.panache.MongoEntity;
+import org.bson.types.ObjectId;
+
+@MongoEntity(collection = "rule")
 public class Rule {
+
+	private String artifactId;
+
+	private ObjectId referencedArtifact;
+
+	private String type;
+
+	private String configuration;
+
+	public Rule(String artifactId, ObjectId referencedArtifact, String type, String configuration) {
+		this.artifactId = artifactId;
+		this.referencedArtifact = referencedArtifact;
+		this.type = type;
+		this.configuration = configuration;
+	}
+
+	public String getArtifactId() {
+		return artifactId;
+	}
+
+	public void setArtifactId(String artifactId) {
+		this.artifactId = artifactId;
+	}
+
+	public ObjectId getReferencedArtifact() {
+		return referencedArtifact;
+	}
+
+	public void setReferencedArtifact(ObjectId referencedArtifact) {
+		this.referencedArtifact = referencedArtifact;
+	}
+
+	public String getType() {
+		return type;
+	}
+
+	public void setType(String type) {
+		this.type = type;
+	}
+
+	public String getConfiguration() {
+		return configuration;
+	}
+
+	public void setConfiguration(String configuration) {
+		this.configuration = configuration;
+	}
 }

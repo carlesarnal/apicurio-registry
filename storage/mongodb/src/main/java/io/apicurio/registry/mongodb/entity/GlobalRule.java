@@ -16,5 +16,34 @@
 
 package io.apicurio.registry.mongodb.entity;
 
-public class GlobalRule {
+import io.quarkus.mongodb.panache.MongoEntity;
+import io.quarkus.mongodb.panache.PanacheMongoEntity;
+
+@MongoEntity(collection = "globalrule")
+public class GlobalRule extends PanacheMongoEntity {
+
+	private String type;
+
+	private String configuration;
+
+	public GlobalRule(String type, String configuration) {
+		this.type = type;
+		this.configuration = configuration;
+	}
+
+	public String getType() {
+		return type;
+	}
+
+	public void setType(String type) {
+		this.type = type;
+	}
+
+	public String getConfiguration() {
+		return configuration;
+	}
+
+	public void setConfiguration(String configuration) {
+		this.configuration = configuration;
+	}
 }

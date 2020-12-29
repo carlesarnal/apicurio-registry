@@ -19,7 +19,7 @@ package io.apicurio.registry.mongodb.entity;
 import io.quarkus.mongodb.panache.MongoEntity;
 import io.quarkus.mongodb.panache.PanacheMongoEntity;
 
-@MongoEntity(collection = "Artifacts")
+@MongoEntity(collection = "label")
 public class Label extends PanacheMongoEntity {
 
     private String versionId;
