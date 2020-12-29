@@ -174,6 +174,12 @@ public class ArtifactRepository implements PanacheMongoRepository<Artifact> {
         return searchedArtifact;
     }
 
+    public Version getArtifactLatestVersion(String artifactId) {
+
+            return versionRepository.find("artifactId = :artifactId and globalId = :globalId", Parameters.with("artifactId", artifactId).and("globalId", findByArtifactId(artifactId).getLatest()))
+                    .firstResult();
+    }
+
     private static class SearchQueries {
 
         protected static final String searchNameCount = "name like :nameSearch and v.globalId IN (a.latest from Artifact a)";

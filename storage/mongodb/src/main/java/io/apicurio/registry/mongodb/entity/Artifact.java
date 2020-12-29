@@ -21,7 +21,7 @@ import io.quarkus.mongodb.panache.PanacheMongoEntity;
 
 import java.util.List;
 
-@MongoEntity(collection = "Artifacts")
+@MongoEntity(collection = "artifact")
 public class Artifact extends PanacheMongoEntity {
 
     private String artifactId;

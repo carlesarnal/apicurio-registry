@@ -16,8 +16,10 @@
 
 package io.apicurio.registry.mongodb.entity;
 
+import io.quarkus.mongodb.panache.MongoEntity;
 import io.quarkus.mongodb.panache.PanacheMongoEntity;
 
+@MongoEntity(collection = "content")
 public class Content extends PanacheMongoEntity {
 
     private String canonicalHash;

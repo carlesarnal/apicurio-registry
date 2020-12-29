@@ -16,10 +16,11 @@
 
 package io.apicurio.registry.mongodb.entity;
 
+import io.quarkus.mongodb.panache.MongoEntity;
 import io.quarkus.mongodb.panache.PanacheMongoEntity;
 import org.bson.types.ObjectId;
 
-
+@MongoEntity(collection = "version")
 public class Version extends PanacheMongoEntity {
 
     private Long globalId;

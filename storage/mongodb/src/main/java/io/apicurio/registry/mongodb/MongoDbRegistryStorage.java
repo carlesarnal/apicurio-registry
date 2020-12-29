@@ -42,13 +42,13 @@ import io.apicurio.registry.storage.ArtifactMetaDataDto;
 import io.apicurio.registry.storage.ArtifactNotFoundException;
 import io.apicurio.registry.storage.ArtifactVersionMetaDataDto;
 import io.apicurio.registry.storage.EditableArtifactMetaDataDto;
-import io.apicurio.registry.storage.RegistryStorage;
 import io.apicurio.registry.storage.RegistryStorageException;
 import io.apicurio.registry.storage.RuleAlreadyExistsException;
 import io.apicurio.registry.storage.RuleConfigurationDto;
 import io.apicurio.registry.storage.RuleNotFoundException;
 import io.apicurio.registry.storage.StoredArtifact;
 import io.apicurio.registry.storage.VersionNotFoundException;
+import io.apicurio.registry.storage.impl.AbstractRegistryStorage;
 import io.apicurio.registry.types.ArtifactState;
 import io.apicurio.registry.types.ArtifactType;
 import io.apicurio.registry.types.RuleType;
@@ -86,11 +86,12 @@ import static org.eclipse.microprofile.metrics.MetricUnits.MILLISECONDS;
 @ApplicationScoped
 @PersistenceExceptionLivenessApply
 @PersistenceTimeoutReadinessApply
-@Counted(name = STORAGE_OPERATION_COUNT + "_MongoDbRegistry", description = STORAGE_OPERATION_COUNT_DESC, tags = {"group=" + STORAGE_GROUP_TAG, "metric=" + STORAGE_OPERATION_COUNT}, reusable = true)
-@ConcurrentGauge(name = STORAGE_CONCURRENT_OPERATION_COUNT + "_MongoDbRegistry", description = STORAGE_CONCURRENT_OPERATION_COUNT_DESC, tags = {"group=" + STORAGE_GROUP_TAG, "metric=" + STORAGE_CONCURRENT_OPERATION_COUNT}, reusable = true)
-@Timed(name = STORAGE_OPERATION_TIME + "_MongoDbRegistry", description = STORAGE_OPERATION_TIME_DESC, tags = {"group=" + STORAGE_GROUP_TAG, "metric=" + STORAGE_OPERATION_TIME}, unit = MILLISECONDS, reusable = true)
+@Counted(name = STORAGE_OPERATION_COUNT, description = STORAGE_OPERATION_COUNT_DESC, tags = {"group=" + STORAGE_GROUP_TAG, "metric=" + STORAGE_OPERATION_COUNT})
+@ConcurrentGauge(name = STORAGE_CONCURRENT_OPERATION_COUNT, description = STORAGE_CONCURRENT_OPERATION_COUNT_DESC, tags = {"group=" + STORAGE_GROUP_TAG, "metric=" + STORAGE_CONCURRENT_OPERATION_COUNT})
+@Timed(name = STORAGE_OPERATION_TIME, description = STORAGE_OPERATION_TIME_DESC, tags = {"group=" + STORAGE_GROUP_TAG, "metric=" + STORAGE_OPERATION_TIME}, unit = MILLISECONDS)
 @Logged
-public class MongoDbRegistryStorage implements RegistryStorage {
+@SuppressWarnings("unchecked")
+public class MongoDbRegistryStorage extends AbstractRegistryStorage {
 
     private static final Logger logger = LoggerFactory.getLogger(MongoDbRegistryStorage.class);
 
@@ -214,7 +215,7 @@ public class MongoDbRegistryStorage implements RegistryStorage {
     public StoredArtifact getArtifact(String artifactId) throws ArtifactNotFoundException, RegistryStorageException {
         logger.debug("Selecting a single artifact (latest version) by artifactId: {}", artifactId);
 
-        final Version version = versionRepository.getArtifactLatestVersion(artifactId);
+        final Version version = artifactRepository.getArtifactLatestVersion(artifactId);
         final Content content = contentRepository.findById(version.getContentId());
 
         return StoredArtifact.builder()
@@ -257,6 +258,11 @@ public class MongoDbRegistryStorage implements RegistryStorage {
         logger.debug("Selecting artifact (latest version) meta-data: {}", artifactId);
 
         return this.getLatestArtifactMetaDataInternal(artifactId);
+    }
+
+    @Override
+    public ArtifactVersionMetaDataDto getArtifactVersionMetaData(String artifactId, boolean canonical, ContentHandle content) throws ArtifactNotFoundException, RegistryStorageException {
+        return null;
     }
 
     /**
@@ -306,12 +312,6 @@ public class MongoDbRegistryStorage implements RegistryStorage {
     }
 
     @Override
-    public ArtifactMetaDataDto getArtifactMetaData(String artifactId, ContentHandle content) throws ArtifactNotFoundException, RegistryStorageException {
-        logger.debug("TBD - Please implement me!");
-        return null;
-    }
-
-    @Override
     public ArtifactMetaDataDto getArtifactMetaData(long id) throws ArtifactNotFoundException, RegistryStorageException {
         logger.debug("Getting meta-data for globalId: {}", id);
 
@@ -335,6 +335,11 @@ public class MongoDbRegistryStorage implements RegistryStorage {
     @Override
     public List<RuleType> getArtifactRules(String artifactId) throws ArtifactNotFoundException, RegistryStorageException {
         return null;
+    }
+
+    @Override
+    public void createArtifactRule(String artifactId, RuleType rule, RuleConfigurationDto config) throws ArtifactNotFoundException, RuleAlreadyExistsException, RegistryStorageException {
+
     }
 
     @Override
@@ -477,19 +482,23 @@ public class MongoDbRegistryStorage implements RegistryStorage {
 
         artifactRepository.persist(artifact);
 
-        // Then create a row in the content and versions tables (for the content and version meta-data)
-        ArtifactVersionMetaDataDto vmdd = this.createArtifactVersion(artifactType, true, artifact,
-                metaData.getName(), metaData.getDescription(), metaData.getLabels(), metaData.getProperties(), content);
+        ArtifactVersionMetaDataDto vmdd = null;
+        if (metaData != null) {
+            // Then create a row in the content and versions tables (for the content and version meta-data)
+            vmdd = this.createArtifactVersion(artifactType, true, artifact,
+                    metaData.getName(), metaData.getDescription(), metaData.getLabels(), metaData.getProperties(), content);
+        } else {
+            vmdd = this.createArtifactVersion(artifactType, true, artifact,
+                    null, null, null, null, content);
+        }
 
-        // Update the "latest" column in the artifacts table with the globalId of the new version
+        // Update the "latest" column in the artifacts collection with the globalId of the new version
         artifactRepository.updateLatestVersion(artifact, vmdd.getGlobalId());
 
         // Return the new artifact meta-data
         ArtifactMetaDataDto amdd = versionToArtifactDto(artifactId, vmdd);
         amdd.setCreatedBy(createdBy);
         amdd.setCreatedOn(createdOn.getTime());
-        amdd.setLabels(metaData.getLabels());
-        amdd.setProperties(metaData.getProperties());
         return amdd;
     }
 

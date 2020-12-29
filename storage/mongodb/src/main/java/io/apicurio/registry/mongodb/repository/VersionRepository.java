@@ -19,6 +19,7 @@ package io.apicurio.registry.mongodb.repository;
 import io.apicurio.registry.mongodb.entity.Version;
 import io.apicurio.registry.types.ArtifactState;
 import io.quarkus.mongodb.panache.PanacheMongoRepository;
+import io.quarkus.panache.common.Parameters;
 import org.bson.types.ObjectId;
 
 import javax.enterprise.context.ApplicationScoped;
@@ -49,11 +50,6 @@ public class VersionRepository implements PanacheMongoRepository<Version> {
         final Version version = new Version(0L, contentId, artifactId, numVersion, state.name(), name, description, createdBy, createdOn.toInstant().toEpochMilli(), labelsStr, propertiesStr, referencedArtifact);
         persist(version);
         return version;
-    }
-
-    public Version getArtifactLatestVersion(String artifactId) {
-        return find("globalId = (a.latest from Artifact a where a.artifactId = ?1)", artifactId)
-                .firstResult();
     }
 
     public Version getVersion(String artifactId, Long version) {
