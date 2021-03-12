@@ -1,4 +1,4 @@
-package io.apicurio.registry.streams;
+package io.apicurio.registry.streams.config;
 
 import java.util.Properties;
 
@@ -11,7 +11,9 @@ public interface StreamsProperties {
     long getBaseOffset();
     String getStorageStoreName();
     String getGlobalIdStoreName();
+    String getContentStoreName();
     String getStorageTopic();
+    String getContentTopic();
     String getApplicationServer();
     boolean ignoreAutoCreate();
 }

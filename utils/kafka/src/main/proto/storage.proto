@@ -83,8 +83,7 @@ enum ValueType {
     SNAPSHOT = 4;
     STATE = 5;
     LOGCONFIG = 6;
-    CONTENT = 7;
-    GROUP = 8;
+    GROUP = 7;
 }
 
 message StorageValue {
@@ -110,8 +109,12 @@ message Data {
     repeated ArtifactValue artifacts = 3;
     repeated RuleValue rules = 4;
     repeated LogConfigValue logConfigs = 5;
-    repeated ContentValue contents = 6;
-    repeated GroupMetaDataValue groups = 7;
+    repeated GroupMetaDataValue groups = 6;
+}
+
+message ContentData {
+    fixed64 lastProcessedOffset = 1;
+    repeated ContentValue contents = 2;
 }
 
 message TupleValue {

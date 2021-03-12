@@ -138,22 +138,34 @@ public class Submitter<T> {
         return submit(rvb.build());
     }
 
-    public CompletableFuture<T> submitContent(Str.ActionType actionType, Str.ArtifactKey key, String contentHash, byte[] content, String canonicalContentHash) {
 
-        Str.ContentValue.Builder builder = Str.ContentValue.newBuilder()
-                .setContentHash(contentHash)
-                .setCanonicalHash(canonicalContentHash)
-                .setContent(ByteString.copyFrom(content));
-
-        Str.StorageValue.Builder rvb = getRVBuilder(Str.ValueType.CONTENT, actionType, key, -1L)
-                .setContent(builder);
-
-        return submit(rvb.build());
-    }
 
     public CompletableFuture<T> submitGroup(Str.ActionType actionType, Str.ArtifactKey key, GroupMetaDataValue group) {
         Str.StorageValue.Builder rvb = getRVBuilder(Str.ValueType.GROUP, actionType, key, -1L);
         rvb.setGroup(group);
         return submit(rvb.build());
+    }
+
+    public static class ContentSubmitter<T> {
+
+        private Function<Str.ContentValue, CompletableFuture<T>> submitFn;
+
+        public ContentSubmitter(Function<Str.ContentValue, CompletableFuture<T>> submitFn) {
+            this.submitFn = submitFn;
+        }
+
+        private CompletableFuture<T> submit(Str.ContentValue value) {
+            return submitFn.apply(value);
+        }
+
+        public CompletableFuture<T> submitContent(Str.ActionType actionType, String contentHash, byte[] content, String canonicalContentHash) {
+
+            Str.ContentValue.Builder builder = Str.ContentValue.newBuilder()
+                    .setContentHash(contentHash)
+                    .setCanonicalHash(canonicalContentHash)
+                    .setContent(ByteString.copyFrom(content));
+
+            return submit(builder.build());
+        }
     }
 }
