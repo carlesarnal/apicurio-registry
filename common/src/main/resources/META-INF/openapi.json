@@ -2580,7 +2580,8 @@
                     "state",
                     "globalId",
                     "version",
-                    "contentId"
+                    "contentId",
+                    "references"
                 ],
                 "type": "object",
                 "properties": {
@@ -2633,6 +2634,13 @@
                         "format": "int64",
                         "description": "",
                         "type": "integer"
+                    },
+                    "references": {
+                        "description": "",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/VersionReference"
+                        }
                     }
                 },
                 "example": {
@@ -2651,7 +2659,10 @@
                     "properties": {
 
                     },
-                    "contentId": 62
+                    "contentId": 62,
+                    "references": {
+
+                    }
                 }
             },
             "RuleViolationError": {
@@ -2880,6 +2891,13 @@
                         "format": "int64",
                         "description": "",
                         "type": "integer"
+                    },
+                    "references": {
+                        "description": "",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/VersionReference"
+                        }
                     }
                 },
                 "example": {
@@ -3139,6 +3157,41 @@
                 "example": {
                     "downloadId": "247-4987490-297845",
                     "href": "https://54321.registry.examples.org/apis/registry/v2/downloads/247-4987490-297845"
+                }
+            },
+            "VersionReference": {
+                "title": "Root Type for ArtifactReference",
+                "description": "A reference to a different artifact. Typically used with artifact types that can have dependencies like Protobuf.",
+                "required": [
+                    "artifactId",
+                    "groupId",
+                    "name",
+                    "globalId"
+                ],
+                "type": "object",
+                "properties": {
+                    "groupId": {
+                        "type": "string"
+                    },
+                    "artifactId": {
+                        "type": "string"
+                    },
+                    "version": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "globalId": {
+                        "type": "integer"
+                    }
+                },
+                "example": {
+                    "groupId": "mygroup",
+                    "artifactId": "13842090-2ce3-11ec-8d3d-0242ac130003",
+                    "version": "versionName",
+                    "globalId": 2,
+                    "name": "foo.bar.Open"
                 }
             }
         },
