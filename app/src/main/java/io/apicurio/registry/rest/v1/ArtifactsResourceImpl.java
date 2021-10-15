@@ -206,7 +206,7 @@ public class ArtifactsResourceImpl implements ArtifactsResource, Headers {
     }
 
     /**
-     * @see io.apicurio.registry.rest.v1.ArtifactsResource#createArtifact(io.apicurio.registry.types.ArtifactType, java.lang.String, io.apicurio.registry.rest.v1.v1.beans.IfExistsType, java.lang.Boolean, java.io.InputStream)
+     * @see io.apicurio.registry.rest.v1.ArtifactsResource#createArtifact (io.apicurio.registry.types.ArtifactType, java.lang.String, io.apicurio.registry.rest.v1.v1.beans.IfExistsType, java.lang.Boolean, java.io.InputStream)
      */
     @Override
     @Authorized(style=AuthorizedStyle.None, level=AuthorizedLevel.Write)
@@ -234,7 +234,7 @@ public class ArtifactsResourceImpl implements ArtifactsResource, Headers {
             ArtifactType artifactType = ArtifactTypeUtil.determineArtifactType(content, xRegistryArtifactType, ct);
             rulesService.applyRules(null, artifactId, artifactType, content, RuleApplicationType.CREATE);
             final String finalArtifactId = artifactId;
-            ArtifactMetaDataDto amd = storage.createArtifact(null, artifactId, null, artifactType, content);
+            ArtifactMetaDataDto amd = storage.createArtifact(null, artifactId, null, artifactType, content, null);
             return V1ApiUtil.dtoToMetaData(finalArtifactId, artifactType, amd);
         } catch (ArtifactAlreadyExistsException ex) {
             return handleIfExists(xRegistryArtifactType, xRegistryArtifactId, ifExists, content, ct, fcanonical);
@@ -279,7 +279,7 @@ public class ArtifactsResourceImpl implements ArtifactsResource, Headers {
 
         ArtifactType artifactType = ArtifactTypeUtil.determineArtifactType(content, xRegistryArtifactType, ct);
         rulesService.applyRules(null, artifactId, artifactType, content, RuleApplicationType.UPDATE);
-        ArtifactMetaDataDto dto = storage.updateArtifact(null, artifactId, null, artifactType, content);
+        ArtifactMetaDataDto dto = storage.updateArtifact(null, artifactId, null, artifactType, content, null);
         return V1ApiUtil.dtoToMetaData(artifactId, artifactType, dto);
     }
 
@@ -333,7 +333,7 @@ public class ArtifactsResourceImpl implements ArtifactsResource, Headers {
 
         ArtifactType artifactType = ArtifactTypeUtil.determineArtifactType(content, xRegistryArtifactType, ct);
         rulesService.applyRules(null, artifactId, artifactType, content, RuleApplicationType.UPDATE);
-        ArtifactMetaDataDto amd = storage.updateArtifact(null, artifactId, null, artifactType, content);
+        ArtifactMetaDataDto amd = storage.updateArtifact(null, artifactId, null, artifactType, content, null);
         return V1ApiUtil.dtoToVersionMetaData(artifactId, artifactType, amd);
     }
 
@@ -377,7 +377,7 @@ public class ArtifactsResourceImpl implements ArtifactsResource, Headers {
     }
 
     /**
-     * @see io.apicurio.registry.rest.v1.ArtifactsResource#createArtifactRule(java.lang.String, io.apicurio.registry.rest.v1.v1.beans.Rule)
+     * @see io.apicurio.registry.rest.v1.ArtifactsResource#createArtifactRule (java.lang.String, io.apicurio.registry.rest.v1.v1.beans.Rule)
      */
     @Override
     @Authorized(style=AuthorizedStyle.ArtifactOnly, level=AuthorizedLevel.Write)
@@ -464,7 +464,7 @@ public class ArtifactsResourceImpl implements ArtifactsResource, Headers {
     }
 
     /**
-     * @see io.apicurio.registry.rest.v1.ArtifactsResource#updateArtifactMetaData(java.lang.String, io.apicurio.registry.rest.v1.v1.beans.EditableMetaData)
+     * @see io.apicurio.registry.rest.v1.ArtifactsResource#updateArtifactMetaData (java.lang.String, io.apicurio.registry.rest.v1.v1.beans.EditableMetaData)
      */
     @Override
     @Authorized(style=AuthorizedStyle.ArtifactOnly, level=AuthorizedLevel.Write)
