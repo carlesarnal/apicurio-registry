@@ -4,7 +4,7 @@
 
     <groupId>io.apicurio</groupId>
     <artifactId>apicurio-registry</artifactId>
-    <version>2.1.2-SNAPSHOT</version>
+    <version>2.1.3-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>apicurio-registry</name>
 
@@ -148,12 +148,12 @@
 
         <!-- Schema types -->
         <avro.version>1.10.2</avro.version>
-        <json-schema-validator.version>1.0.62</json-schema-validator.version>
+        <json-schema-validator.version>1.0.63</json-schema-validator.version>
         <wire-schema.version>3.7.0</wire-schema.version>
         <wire-compiler.version>3.7.0</wire-compiler.version>
         <jimfs.version>1.1</jimfs.version>
-        <icu4j.version>69.1</icu4j.version>
-        <protobuf.version>3.18.1</protobuf.version>
+        <icu4j.version>70.1</icu4j.version>
+        <protobuf.version>3.19.1</protobuf.version>
         <xmlsec.version>2.1.7</xmlsec.version>
         <protobuf.googleapi.types.version>2.5.1</protobuf.googleapi.types.version>
         <wsdl4j.version>1.6.3</wsdl4j.version>
@@ -169,16 +169,15 @@
         <quarkus.profile>dev</quarkus.profile>
 
         <!-- Apicurio Data Models (OpenAPI and AsyncAPI support) -->
-        <apicurio-data-models.version>1.1.16</apicurio-data-models.version>
+        <apicurio-data-models.version>1.1.18</apicurio-data-models.version>
 
         <!-- GraphQL -->
         <graphql.version>17.3</graphql.version>
 
         <!-- JSON Schema Validator -->
-        <medeia-validator-jackson.version>1.1.1</medeia-validator-jackson.version>
         <org.everit.json.schema.version>1.14.0</org.everit.json.schema.version><!-- TODO unification -->
         <jackson-datatype-json-org.version>2.13.0</jackson-datatype-json-org.version>
-        <jackson-dataformat-yaml.version>2.12.5</jackson-dataformat-yaml.version>
+        <jackson-dataformat-yaml.version>2.13.0</jackson-dataformat-yaml.version>
 
         <!-- Dependency versions -->
         <lombok.version>1.18.22</lombok.version>
@@ -228,8 +227,8 @@
         <os-maven-plugin.version>1.7.0</os-maven-plugin.version>
 
         <!-- Test containers version, should be aligned with version used in Quarkus -->
-        <test-containers.version>1.16.0</test-containers.version>
-        <keycloak.testcontainers.version>1.8.0</keycloak.testcontainers.version>
+        <test-containers.version>1.16.2</test-containers.version>
+        <keycloak.testcontainers.version>1.8.1</keycloak.testcontainers.version>
         <keycloak-admin-client.version>15.0.2</keycloak-admin-client.version>
         <embedded-postgres.version>1.3.1</embedded-postgres.version>
         <strimzi.version>0.25.0</strimzi.version>
@@ -500,12 +499,6 @@
                 <version>${graphql.version}</version>
             </dependency>
 
-            <!-- JSON Schema Validator -->
-            <dependency>
-                <groupId>com.worldturner.medeia</groupId>
-                <artifactId>medeia-validator-jackson</artifactId>
-                <version>${medeia-validator-jackson.version}</version>
-            </dependency>
             <dependency>
                 <groupId>com.github.everit-org.json-schema</groupId>
                 <artifactId>org.everit.json.schema</artifactId>
