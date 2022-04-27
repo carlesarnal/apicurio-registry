@@ -34,8 +34,10 @@ import io.apicurio.registry.rest.v2.beans.VersionMetaData;
 import io.apicurio.registry.types.ArtifactType;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.stream.Collectors;
 
 /**
  * @author eric.wittmann@gmail.com
@@ -80,6 +82,10 @@ public final class V2ApiUtil {
         metaData.setState(dto.getState());
         metaData.setLabels(dto.getLabels());
         metaData.setProperties(dto.getProperties());
+        metaData.setReferences(dto.getReferences() == null ? Collections.emptyList() : dto.getReferences()
+                .stream()
+                .map(V2ApiUtil::referenceDtoToReference)
+                .collect(Collectors.toList()));
         return metaData;
     }
 

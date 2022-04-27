@@ -51,6 +51,8 @@ public interface RegistryClient extends Closeable {
 
     InputStream getLatestArtifact(String groupId, String artifactId);
 
+    ArtifactMetaData updateArtifact(String groupId, String artifactId, String version, String artifactName, String artifactDescription, String contentType, InputStream data, List<ArtifactReference> references);
+
     ArtifactMetaData updateArtifact(String groupId, String artifactId, String version, String artifactName, String artifactDescription, String contentType, InputStream data);
 
     default ArtifactMetaData updateArtifact(String groupId, String artifactId, String version, String artifactName, String artifactDescription, InputStream data) {
@@ -124,6 +126,8 @@ public interface RegistryClient extends Closeable {
     default VersionMetaData createArtifactVersion(String groupId, String artifactId, String version, InputStream data) {
         return createArtifactVersion(groupId, artifactId, version, null, null, null, data);
     }
+
+    VersionMetaData createArtifactVersion(String groupId, String artifactId, String version, String artifactName, String artifactDescription, String contentType, InputStream data, List<ArtifactReference> references);
 
     ArtifactSearchResults listArtifactsInGroup(String groupId, SortBy orderBy, SortOrder order, Integer offset, Integer limit);
 

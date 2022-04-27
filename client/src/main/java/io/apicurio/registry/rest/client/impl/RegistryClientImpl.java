@@ -87,6 +87,28 @@ public class RegistryClientImpl implements RegistryClient {
     }
 
     @Override
+    public ArtifactMetaData updateArtifact(String groupId, String artifactId, String version, String artifactName, String artifactDescription, String contentType, InputStream data, List<ArtifactReference> references) {
+        if (artifactId != null && !ArtifactIdValidator.isArtifactIdAllowed(artifactId)) {
+            throw new InvalidArtifactIdException();
+        }
+
+        final Map<String, String> headers = headersFrom(version, artifactName, artifactDescription, contentType);
+        if (artifactId != null) {
+            headers.put(Headers.ARTIFACT_ID, artifactId);
+        }
+
+        final ContentCreateRequest contentCreateRequest = new ContentCreateRequest();
+        contentCreateRequest.setContent(IoUtil.toString(data));
+        contentCreateRequest.setReferences(references);
+
+        try {
+            return apicurioHttpClient.sendRequest(GroupRequestsProvider.updateArtifactWithReferences(normalizeGid(groupId), artifactId, headers, contentCreateRequest));
+        } catch (JsonProcessingException e) {
+            throw parseSerializationError(e);
+        }
+    }
+
+    @Override
     public void deleteArtifact(String groupId, String artifactId) {
         apicurioHttpClient.sendRequest(GroupRequestsProvider.deleteArtifact(normalizeGid(groupId), artifactId));
     }
@@ -203,6 +225,27 @@ public class RegistryClientImpl implements RegistryClient {
         Map<String, List<String>> queryParams = new HashMap<>();
         checkCommonQueryParams(null, null, limit, offset, queryParams);
         return apicurioHttpClient.sendRequest(GroupRequestsProvider.listArtifactVersions(normalizeGid(groupId), artifactId, queryParams));
+    }
+
+    @Override
+    public VersionMetaData createArtifactVersion(String groupId, String artifactId, String version, String artifactName, String artifactDescription, String contentType, InputStream data, List<ArtifactReference> references) {
+        if (artifactId != null && !ArtifactIdValidator.isArtifactIdAllowed(artifactId)) {
+            throw new InvalidArtifactIdException();
+        }
+        final Map<String, String> headers = headersFrom(version, artifactName, artifactDescription, contentType);
+        if (artifactId != null) {
+            headers.put(Headers.ARTIFACT_ID, artifactId);
+        }
+
+        final ContentCreateRequest contentCreateRequest = new ContentCreateRequest();
+        contentCreateRequest.setContent(IoUtil.toString(data));
+        contentCreateRequest.setReferences(references);
+
+        try {
+            return apicurioHttpClient.sendRequest(GroupRequestsProvider.createArtifactVersionWithReferences(normalizeGid(groupId), artifactId, headers, contentCreateRequest));
+        } catch (JsonProcessingException e) {
+            throw parseSerializationError(e);
+        }
     }
 
     @Override

@@ -86,6 +86,18 @@ public class GroupRequestsProvider {
                 .build();
     }
 
+    public static Request<VersionMetaData> createArtifactVersionWithReferences(String groupId, String artifactId, Map<String, String> headers, ContentCreateRequest data) throws JsonProcessingException {
+        return new Request.RequestBuilder<VersionMetaData>()
+                .operation(Operation.POST)
+                .path(Routes.ARTIFACT_VERSIONS)
+                .headers(headers)
+                .pathParams(List.of(groupId, artifactId))
+                .responseType(new TypeReference<VersionMetaData>() {
+                })
+                .data(IoUtil.toStream(mapper.writeValueAsBytes(data)))
+                .build();
+    }
+
     public static Request<VersionMetaData> createArtifactVersion(String groupId, String artifactId, InputStream data, Map<String, String> headers) {
         return new Request.RequestBuilder<VersionMetaData>()
                 .operation(Operation.POST)
@@ -323,6 +335,18 @@ public class GroupRequestsProvider {
                 .responseType(new TypeReference<ArtifactMetaData>() {
                 })
                 .data(data)
+                .build();
+    }
+
+    public static Request<ArtifactMetaData> updateArtifactWithReferences(String groupId, String artifactId, Map<String, String> headers, ContentCreateRequest data) throws JsonProcessingException {
+        return new Request.RequestBuilder<ArtifactMetaData>()
+                .operation(Operation.PUT)
+                .path(Routes.ARTIFACT_BASE_PATH)
+                .headers(headers)
+                .pathParams(List.of(groupId, artifactId))
+                .responseType(new TypeReference<ArtifactMetaData>() {
+                })
+                .data(IoUtil.toStream(mapper.writeValueAsBytes(data)))
                 .build();
     }
 

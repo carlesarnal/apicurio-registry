@@ -265,9 +265,10 @@ public abstract class CommonSqlStatements implements SqlStatements {
      */
     @Override
     public String selectLatestArtifactMetaData() {
-        return "SELECT a.*, v.contentId, v.globalId, v.version, v.versionId, v.state, v.name, v.description, v.labels, v.properties, v.createdBy AS modifiedBy, v.createdOn AS modifiedOn "
+        return "SELECT a.*, v.contentId, v.globalId, v.version, v.versionId, v.state, v.name, v.description, v.labels, v.properties, v.createdBy AS modifiedBy, v.createdOn AS modifiedOn, c.artifactreferences "
                 + "FROM artifacts a "
                 + "JOIN versions v ON a.tenantId = v.tenantId AND a.latest = v.globalId "
+                + "JOIN content c ON v.tenantId = c.tenantId AND v.contentId = c.contentId "
                 + "WHERE a.tenantId = ? AND a.groupId = ? AND a.artifactId = ?";
     }
 
@@ -449,9 +450,10 @@ public abstract class CommonSqlStatements implements SqlStatements {
      */
     @Override
     public String selectArtifactMetaDataByGlobalId() {
-        return "SELECT a.*, v.contentId, v.globalId, v.version, v.versionId, v.state, v.name, v.description, v.labels, v.properties, v.createdBy AS modifiedBy, v.createdOn AS modifiedOn "
+        return "SELECT a.*, v.contentId, v.globalId, v.version, v.versionId, v.state, v.name, v.description, v.labels, v.properties, v.createdBy AS modifiedBy, v.createdOn AS modifiedOn, c.artifactreferences "
                 + "FROM artifacts a "
                 + "JOIN versions v ON a.tenantId = v.tenantId AND a.groupId = v.groupId AND a.artifactId = v.artifactId "
+                + "JOIN content c ON v.tenantId = c.tenantId AND v.contentId = c.contentId "
                 + "WHERE v.tenantId = ? AND v.globalId = ?";
     }
 
@@ -592,6 +594,15 @@ public abstract class CommonSqlStatements implements SqlStatements {
     public String selectContentByContentHash() {
         return "SELECT c.content, c.artifactreferences FROM content c "
                 + "WHERE c.tenantId = ? AND c.contentHash = ?";
+    }
+
+    /**
+     * @see io.apicurio.registry.storage.impl.sql.SqlStatements#selectReferencesByCoordinates()
+     */
+    @Override
+    public String selectReferencesByCoordinates() {
+        return "SELECT ar.name, ar.artifactId, ar.groupId, ar.version FROM artifactreferences ar "
+                + "WHERE ar.tenantId = ? AND ar.groupId = ? AND ar.artifactId = ? AND ar.contentId = ?";
     }
 
     @Override

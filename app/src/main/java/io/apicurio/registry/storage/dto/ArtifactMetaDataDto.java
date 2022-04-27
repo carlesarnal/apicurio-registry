@@ -52,6 +52,7 @@ public class ArtifactMetaDataDto {
     private ArtifactState state;
     private List<String> labels;
     private Map<String, String> properties;
+    private List<ArtifactReferenceDto> references;
 
     /**
      * Constructor.
@@ -281,5 +282,19 @@ public class ArtifactMetaDataDto {
      */
     public void setVersionId(int versionId) {
         this.versionId = versionId;
+    }
+
+    /**
+     * @return the references
+     */
+    public List<ArtifactReferenceDto> getReferences() {
+        return references;
+    }
+
+    /**
+     * @param references the references to set
+     */
+    public void setReferences(List<ArtifactReferenceDto> references) {
+        this.references = references;
     }
 }

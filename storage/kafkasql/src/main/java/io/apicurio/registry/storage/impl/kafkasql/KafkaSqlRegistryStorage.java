@@ -1174,6 +1174,11 @@ public class KafkaSqlRegistryStorage extends AbstractRegistryStorage {
         return sqlStore.resolveReferences(references);
     }
 
+    @Override
+    public List<ArtifactReferenceDto> getArtifactReferencesByCoordinates(long contentId, String groupId, String artifactId) {
+        return sqlStore.getArtifactReferencesByCoordinates(contentId, groupId, artifactId);
+    }
+
     /**
      * @see io.apicurio.common.apps.config.DynamicConfigStorage#getConfigProperties()
      */

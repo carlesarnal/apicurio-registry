@@ -688,6 +688,15 @@ public interface RegistryStorage extends DynamicConfigStorage {
     public Map<String, ContentHandle> resolveReferences(List<ArtifactReferenceDto> references);
 
     /**
+     * @return The artifact references by artifact coordinates.
+     * @param contentId the contentId to be used when looking for references.
+     * @param groupId the contentId to be used when looking for references.
+     * @param artifactId the contentId to be used when looking for references.
+     */
+
+    public List<ArtifactReferenceDto> getArtifactReferencesByCoordinates(long contentId, String groupId, String artifactId);
+
+    /**
      *
      * @param groupId
      * @param artifactId

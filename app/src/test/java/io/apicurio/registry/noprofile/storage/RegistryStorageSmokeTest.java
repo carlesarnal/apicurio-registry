@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.util.Collections;
 import java.util.List;
 
 import javax.inject.Inject;
@@ -98,9 +99,9 @@ public class RegistryStorageSmokeTest extends AbstractResourceTestBase {
         int size = getStorage().getArtifactIds(null).size();
 
         // Create 2 version of an artifact and one other artifact
-        ArtifactMetaDataDto meta1 = getStorage().createArtifact(GROUP_ID, ARTIFACT_ID_1, null, ArtifactType.JSON, ContentHandle.create("content1"), null);
+        ArtifactMetaDataDto meta1 = getStorage().createArtifact(GROUP_ID, ARTIFACT_ID_1, null, ArtifactType.JSON, ContentHandle.create("content1"), Collections.emptyList());
         this.waitForArtifact(GROUP_ID, ARTIFACT_ID_1);
-        ArtifactMetaDataDto meta2 = getStorage().updateArtifact(GROUP_ID, ARTIFACT_ID_1, null, ArtifactType.JSON, ContentHandle.create("content2"), null);
+        ArtifactMetaDataDto meta2 = getStorage().updateArtifact(GROUP_ID, ARTIFACT_ID_1, null, ArtifactType.JSON, ContentHandle.create("content2"), Collections.emptyList());
         this.waitForGlobalId(meta2.getGlobalId());
         getStorage().createArtifact(GROUP_ID, ARTIFACT_ID_2, null, ArtifactType.AVRO, ContentHandle.create("content3"), null);
         this.waitForArtifact(GROUP_ID, ARTIFACT_ID_2);

@@ -398,6 +398,11 @@ public interface SqlStatements {
     public String selectContentByContentHash();
 
     /**
+     * A statement to select the references of a content row by artifact coordinates
+     */
+    public String selectReferencesByCoordinates();
+
+    /**
      * A statement to delete content that is no longer being referenced by an artifact version.
      */
     public String deleteAllOrphanedContent();

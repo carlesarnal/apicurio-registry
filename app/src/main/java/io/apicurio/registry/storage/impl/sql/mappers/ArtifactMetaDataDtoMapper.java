@@ -60,6 +60,7 @@ public class ArtifactMetaDataDtoMapper implements RowMapper<ArtifactMetaDataDto>
         dto.setModifiedBy(rs.getString("modifiedBy"));
         dto.setModifiedOn(rs.getTimestamp("modifiedOn").getTime());
         dto.setType(ArtifactType.valueOf(rs.getString("type")));
+
         return dto;
     }
 

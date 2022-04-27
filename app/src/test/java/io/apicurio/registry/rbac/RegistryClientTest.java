@@ -16,38 +16,6 @@
 
 package io.apicurio.registry.rbac;
 
-import static io.apicurio.registry.utils.tests.TestUtils.retry;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.Collectors;
-
-import javax.inject.Inject;
-
-import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.io.IOUtils;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import io.apicurio.registry.AbstractRegistryTestBase;
 import io.apicurio.registry.AbstractResourceTestBase;
 import io.apicurio.registry.rest.client.RegistryClient;
@@ -59,6 +27,7 @@ import io.apicurio.registry.rest.client.exception.RateLimitedClientException;
 import io.apicurio.registry.rest.client.exception.RoleMappingAlreadyExistsException;
 import io.apicurio.registry.rest.client.exception.RoleMappingNotFoundException;
 import io.apicurio.registry.rest.v2.beans.ArtifactMetaData;
+import io.apicurio.registry.rest.v2.beans.ArtifactReference;
 import io.apicurio.registry.rest.v2.beans.ArtifactSearchResults;
 import io.apicurio.registry.rest.v2.beans.ConfigurationProperty;
 import io.apicurio.registry.rest.v2.beans.EditableMetaData;
@@ -85,6 +54,36 @@ import io.apicurio.registry.utils.tests.TestUtils;
 import io.apicurio.registry.utils.tests.TooManyRequestsMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.io.IOUtils;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.inject.Inject;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
+
+import static io.apicurio.registry.utils.tests.TestUtils.retry;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * @author Carles Arnal 'carnalca@redhat.com'
@@ -160,6 +159,58 @@ public class RegistryClientTest extends AbstractResourceTestBase {
     }
 
     @Test
+    public void testCreateArtifactWithReferences() throws Exception {
+        //Preparation
+        final String groupId = "testCreateArtifactWithReferences";
+        final String artifactId = generateArtifactId();
+
+        final String version = "1";
+        final String name = "testCreateArtifactWithReferencesName";
+        final String description = "testCreateArtifactWithReferencesDescription";
+
+        //Execution
+        final InputStream stream = IoUtil.toStream(ARTIFACT_CONTENT.getBytes(StandardCharsets.UTF_8));
+        final ArtifactMetaData created = clientV2.createArtifact(groupId, artifactId, version, ArtifactType.JSON, IfExists.FAIL, false, name, description, stream);
+        waitForArtifact(groupId, artifactId);
+
+        //Assertions
+        assertNotNull(created);
+        assertEquals(groupId, created.getGroupId());
+        assertEquals(artifactId, created.getId());
+        assertEquals(version, created.getVersion());
+        assertEquals(name, created.getName());
+        assertEquals(description, created.getDescription());
+        assertEquals(ARTIFACT_CONTENT, IoUtil.toString(clientV2.getLatestArtifact(groupId, artifactId)));
+
+        //Preparation
+        final ArtifactReference artifactReference = new ArtifactReference();
+        artifactReference.setArtifactId(artifactId);
+        artifactReference.setGroupId(groupId);
+        artifactReference.setName(name);
+        artifactReference.setVersion(version);
+
+        final String artifactId2 = generateArtifactId();
+        final String version2 = "1";
+        final String name2 = "testCreateArtifactWithReferencestName";
+        final String description2 = "testCreateArtifactWithReferencesDescription";
+
+        //Execution
+        final InputStream content = IoUtil.toStream(ARTIFACT_CONTENT.getBytes(StandardCharsets.UTF_8));
+        final ArtifactMetaData createdWithReferences = clientV2.createArtifact(groupId, artifactId2, version2, ArtifactType.JSON, IfExists.FAIL, false, name2, description2, ContentTypes.APPLICATION_CREATE_EXTENDED, content, Collections.singletonList(artifactReference));
+        waitForArtifact(groupId, artifactId);
+
+        //Assertions
+        assertNotNull(createdWithReferences);
+        assertEquals(groupId, createdWithReferences.getGroupId());
+        assertEquals(artifactId2, createdWithReferences.getId());
+        assertEquals(version2, createdWithReferences.getVersion());
+        assertEquals(name2, createdWithReferences.getName());
+        assertEquals(description2, created.getDescription());
+        assertEquals(ARTIFACT_CONTENT, IoUtil.toString(clientV2.getLatestArtifact(groupId, artifactId)));
+        assertEquals(artifactReference, createdWithReferences.getReferences().get(0));
+    }
+
+    @Test
     public void testCreateYamlArtifact() throws Exception {
         //Preparation
         final String groupId = "testCreateYamlArtifact";
@@ -214,6 +265,59 @@ public class RegistryClientTest extends AbstractResourceTestBase {
         assertEquals(version, amd.getVersion());
         assertEquals(name, amd.getName());
         assertEquals(description, amd.getDescription());
+
+        assertEquals(UPDATED_CONTENT, IoUtil.toString(clientV2.getLatestArtifact(groupId, artifactId)));
+    }
+
+    @Test
+    public void testCreateArtifactVersionWithReferences() throws Exception {
+        //Preparation
+        final String groupId = "testCreateArtifactVersionWithReferences";
+        final String artifactId = generateArtifactId();
+
+        final String version = "1";
+        final String name = "testCreateArtifactVersionWithReferencesName";
+        final String description = "testCreateArtifactVersionWithReferencesDescription";
+
+        //Execution
+        final InputStream stream = IoUtil.toStream(ARTIFACT_CONTENT.getBytes(StandardCharsets.UTF_8));
+        final ArtifactMetaData created = clientV2.createArtifact(groupId, artifactId, version, ArtifactType.JSON, IfExists.FAIL, false, name, description, stream);
+        waitForArtifact(groupId, artifactId);
+
+        //Assertions
+        assertNotNull(created);
+        assertEquals(groupId, created.getGroupId());
+        assertEquals(artifactId, created.getId());
+        assertEquals(version, created.getVersion());
+        assertEquals(name, created.getName());
+        assertEquals(description, created.getDescription());
+        assertEquals(ARTIFACT_CONTENT, IoUtil.toString(clientV2.getLatestArtifact(groupId, artifactId)));
+
+        //Preparation
+        final ArtifactReference artifactReference = new ArtifactReference();
+        artifactReference.setArtifactId(artifactId);
+        artifactReference.setGroupId(groupId);
+        artifactReference.setName(name);
+        artifactReference.setVersion(version);
+
+        //Execution
+        final InputStream versionContent = IoUtil.toStream(UPDATED_CONTENT.getBytes(StandardCharsets.UTF_8));
+        VersionMetaData versionMetaData = clientV2.createArtifactVersion(groupId, artifactId, "2", name, description, ContentTypes.APPLICATION_CREATE_EXTENDED, versionContent, Collections.singletonList(artifactReference));
+        waitForVersion(groupId, artifactId, 2);
+
+        ArtifactMetaData amd = clientV2.getArtifactMetaData(groupId, artifactId);
+
+        //Assertions
+        assertNotNull(versionMetaData);
+        assertEquals("2", versionMetaData.getVersion());
+        assertEquals(name, versionMetaData.getName());
+        assertEquals(description, versionMetaData.getDescription());
+
+        assertNotNull(amd);
+        assertEquals("2", amd.getVersion());
+        assertEquals(name, amd.getName());
+        assertEquals(description, amd.getDescription());
+        assertEquals(artifactReference, amd.getReferences().get(0));
 
         assertEquals(UPDATED_CONTENT, IoUtil.toString(clientV2.getLatestArtifact(groupId, artifactId)));
     }
@@ -956,6 +1060,54 @@ public class RegistryClientTest extends AbstractResourceTestBase {
     }
 
     @Test
+    public void testUpdateArtifactWithReferences() throws Exception {
+
+        //Preparation
+        final String groupId = "testUpdateArtifactWithReferences";
+        final String artifactId = generateArtifactId();
+
+        final String version = "1";
+        final String name = "testUpdateArtifactWithReferencesArtifactName";
+        final String description = "testUpdateArtifactWithReferencesDescription";
+
+        //Execution
+        final InputStream stream = IoUtil.toStream(ARTIFACT_CONTENT.getBytes(StandardCharsets.UTF_8));
+        final ArtifactMetaData created = clientV2.createArtifact(groupId, artifactId, version, ArtifactType.JSON, IfExists.FAIL, false, name, description, stream);
+        waitForArtifact(groupId, artifactId);
+
+        //Assertions
+        assertNotNull(created);
+        assertEquals(groupId, created.getGroupId());
+        assertEquals(artifactId, created.getId());
+        assertEquals(version, created.getVersion());
+        assertEquals(name, created.getName());
+        assertEquals(description, created.getDescription());
+        assertEquals(ARTIFACT_CONTENT, IoUtil.toString(clientV2.getLatestArtifact(groupId, artifactId)));
+
+        //Preparation
+        final ArtifactReference artifactReference = new ArtifactReference();
+        artifactReference.setArtifactId(artifactId);
+        artifactReference.setGroupId(groupId);
+        artifactReference.setName(name);
+        artifactReference.setVersion(version);
+
+        final InputStream updatedContent = IoUtil.toStream(UPDATED_CONTENT.getBytes(StandardCharsets.UTF_8));
+
+        //Execution
+        clientV2.updateArtifact(groupId, artifactId, "2", name, description, ContentTypes.APPLICATION_CREATE_EXTENDED, updatedContent, Collections.singletonList(artifactReference));
+
+        //Assertions
+        assertEquals(UPDATED_CONTENT, IoUtil.toString(clientV2.getLatestArtifact(groupId, artifactId)));
+
+        ArtifactMetaData artifactMetaData = clientV2.getArtifactMetaData(groupId, artifactId);
+        assertNotNull(artifactMetaData);
+        assertEquals("2", artifactMetaData.getVersion());
+        assertEquals(name, artifactMetaData.getName());
+        assertEquals(description, artifactMetaData.getDescription());
+        assertEquals(artifactReference, artifactMetaData.getReferences().get(0));
+    }
+
+    @Test
     public void testUpdateYamlArtifact() throws Exception {
 
         //Preparation
@@ -1100,7 +1252,8 @@ public class RegistryClientTest extends AbstractResourceTestBase {
     @Test
     public void smokeLogLevels() throws Exception {
         final String logger = "smokeLogLevels";
-        /*final List<NamedLogConfiguration> namedLogConfigurations = */clientV2.listLogConfigurations();
+        /*final List<NamedLogConfiguration> namedLogConfigurations = */
+        clientV2.listLogConfigurations();
 
         setLogLevel(logger, LogLevel.DEBUG);
         final NamedLogConfiguration logConfiguration = clientV2.getLogConfiguration(logger);
