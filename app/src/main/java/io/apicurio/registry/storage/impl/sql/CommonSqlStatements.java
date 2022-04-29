@@ -597,12 +597,12 @@ public abstract class CommonSqlStatements implements SqlStatements {
     }
 
     /**
-     * @see io.apicurio.registry.storage.impl.sql.SqlStatements#selectReferencesByCoordinates()
+     * @see io.apicurio.registry.storage.impl.sql.SqlStatements#selectReferencesByContentId()
      */
     @Override
-    public String selectReferencesByCoordinates() {
+    public String selectReferencesByContentId() {
         return "SELECT ar.name, ar.artifactId, ar.groupId, ar.version FROM artifactreferences ar "
-                + "WHERE ar.tenantId = ? AND ar.groupId = ? AND ar.artifactId = ? AND ar.contentId = ?";
+                + "WHERE ar.tenantId = ? AND ar.contentId = ?";
     }
 
     @Override

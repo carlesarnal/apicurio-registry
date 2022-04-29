@@ -143,7 +143,7 @@ public class KafkaSqlStore extends AbstractSqlRegistryStorage {
         }
 
         return super.createArtifactWithMetadata(groupId, artifactId, version, artifactType, contentId, createdBy, createdOn,
-                metaData, globalIdGenerator, this.getArtifactReferencesByCoordinates(contentId, groupId, artifactId));
+                metaData, globalIdGenerator, this.getArtifactReferencesByContentId(contentId));
     }
 
     @Transactional
@@ -159,7 +159,7 @@ public class KafkaSqlStore extends AbstractSqlRegistryStorage {
         }
 
         return super.updateArtifactWithMetadata(groupId, artifactId, version, artifactType, contentId, createdBy, createdOn,
-                metaData, globalIdGenerator, this.getArtifactReferencesByCoordinates(contentId, groupId, artifactId));
+                metaData, globalIdGenerator, this.getArtifactReferencesByContentId(contentId));
     }
 
     @Transactional

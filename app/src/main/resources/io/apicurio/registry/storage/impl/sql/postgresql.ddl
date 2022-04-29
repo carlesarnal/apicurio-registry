@@ -67,7 +67,7 @@ ALTER TABLE config ADD PRIMARY KEY (tenantId, pname);
 CREATE INDEX IDX_config_1 ON config(modifiedOn);
 
 CREATE TABLE artifactreferences (tenantId VARCHAR(128) NOT NULL, contentId BIGINT NOT NULL, groupId VARCHAR(512), artifactId VARCHAR(512) NOT NULL, version VARCHAR(256), name VARCHAR(512) NOT NULL);
-ALTER TABLE artifactreferences ADD PRIMARY KEY (tenantId, contentId, name);
+ALTER TABLE artifactreferences ADD PRIMARY KEY (tenantId, contentId, name, artifactId);
 ALTER TABLE artifactreferences ADD CONSTRAINT FK_artifactreferences_1 FOREIGN KEY (tenantId, contentId) REFERENCES content(tenantId, contentId);
 ALTER TABLE artifactreferences ADD CONSTRAINT FK_artifactreferences_2 FOREIGN KEY (tenantId, groupId, artifactId, version) REFERENCES versions(tenantId, groupId, artifactId, version);
 

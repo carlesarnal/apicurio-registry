@@ -1,5 +1,5 @@
 -- *********************************************************************
--- DDL for the Apicurio Registry - Database: PostgreSQL
+-- DDL for the Apicurio Registry - Database: H2
 -- Upgrades the DB schema from version 8 to version 9.
 -- *********************************************************************
 

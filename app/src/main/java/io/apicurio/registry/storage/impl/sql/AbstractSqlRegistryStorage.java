@@ -668,33 +668,33 @@ public abstract class AbstractSqlRegistryStorage extends AbstractRegistryStorage
             throw new UnsupportedOperationException("Unsupported database type: " + sqlStatements.dbType());
         }
 
+        //Finally, insert references into the "artifactreferences" table.
+        insertReferences(handle, contentId, references);
+
+        return contentId;
+    }
+
+    protected void insertReferences(Handle handle, Long contentId, List<ArtifactReferenceDto> references) {
         try {
-            //Finally, insert references into the "artifactreferences" table.
-            insertReferences(handle, contentId, references);
+            if (references != null && !references.isEmpty()) {
+                references.forEach(reference -> {
+                    String sqli = sqlStatements.upsertReference();
+                    handle.createUpdate(sqli)
+                            .bind(0, tenantContext.tenantId())
+                            .bind(1, contentId)
+                            .bind(2, reference.getGroupId())
+                            .bind(3, reference.getArtifactId())
+                            .bind(4, reference.getVersion())
+                            .bind(5, reference.getName())
+                            .execute();
+                });
+            }
         } catch (Exception e) {
             if (sqlStatements.isPrimaryKeyViolation(e)) {
                 //Ignore exception, the reference already exists, this means that the user is replicating the content, even at reference level.
             } else {
                 throw new RegistryStorageException(e);
             }
-        }
-
-        return contentId;
-    }
-
-    protected void insertReferences(Handle handle, Long contentId, List<ArtifactReferenceDto> references) {
-        if (references != null && !references.isEmpty()) {
-            references.forEach(reference -> {
-                String sqli = sqlStatements.upsertReference();
-                handle.createUpdate(sqli)
-                        .bind(0, tenantContext.tenantId())
-                        .bind(1, contentId)
-                        .bind(2, reference.getGroupId())
-                        .bind(3, reference.getArtifactId())
-                        .bind(4, reference.getVersion())
-                        .bind(5, reference.getName())
-                        .execute();
-            });
         }
     }
 
@@ -1234,7 +1234,7 @@ public abstract class AbstractSqlRegistryStorage extends AbstractRegistryStorage
             throws ArtifactNotFoundException, RegistryStorageException {
         log.debug("Selecting artifact (latest version) meta-data: {} {}", groupId, artifactId);
         final ArtifactMetaDataDto latestArtifactMetaData = this.getLatestArtifactMetaDataInternal(groupId, artifactId);
-        latestArtifactMetaData.setReferences(this.getArtifactReferencesByCoordinates(latestArtifactMetaData.getContentId(), groupId, artifactId));
+        latestArtifactMetaData.setReferences(this.getArtifactReferencesByContentId(latestArtifactMetaData.getContentId()));
         return latestArtifactMetaData;
     }
 
@@ -2919,14 +2919,12 @@ public abstract class AbstractSqlRegistryStorage extends AbstractRegistryStorage
     }
 
     @Override
-    public List<ArtifactReferenceDto> getArtifactReferencesByCoordinates(long contentId, String groupId, String artifactId) {
+    public List<ArtifactReferenceDto> getArtifactReferencesByContentId(long contentId) {
         return handles.withHandleNoException( handle -> {
-            String sql = sqlStatements().selectReferencesByCoordinates();
+            String sql = sqlStatements().selectReferencesByContentId();
             return handle.createQuery(sql)
                     .bind(0, tenantContext().tenantId())
-                    .bind(1, groupId)
-                    .bind(2, artifactId)
-                    .bind(3, contentId)
+                    .bind(1, contentId)
                     .map(ReferenceMapper.instance)
                     .list();
         });
