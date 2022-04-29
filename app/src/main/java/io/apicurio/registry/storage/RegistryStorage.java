@@ -690,9 +690,11 @@ public interface RegistryStorage extends DynamicConfigStorage {
     /**
      * @return The artifact references by artifact coordinates.
      * @param contentId the contentId to be used when looking for references.
+     * @param groupId the contentId to be used when looking for references.
+     * @param artifactId the contentId to be used when looking for references.
      */
 
-    public List<ArtifactReferenceDto> getArtifactReferencesByContentId(long contentId);
+    public List<ArtifactReferenceDto> getArtifactReferencesByCoordinates(long contentId, String groupId, String artifactId);
 
     /**
      *

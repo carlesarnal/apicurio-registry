@@ -5,4 +5,5 @@
 
 UPDATE apicurio SET prop_value = 10 WHERE prop_name = 'db_version';
 
-ALTER TABLE artifactreferences DROP PRIMARY KEY , ADD PRIMARY KEY (tenantId, contentId, name, artifactId)
+ALTER TABLE artifactreferences DROP CONSTRAINT artifactreferences_pkey;
+ALTER TABLE artifactreferences ADD PRIMARY KEY (tenantId, contentId, name, artifactId);

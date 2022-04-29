@@ -1234,7 +1234,7 @@ public abstract class AbstractSqlRegistryStorage extends AbstractRegistryStorage
             throws ArtifactNotFoundException, RegistryStorageException {
         log.debug("Selecting artifact (latest version) meta-data: {} {}", groupId, artifactId);
         final ArtifactMetaDataDto latestArtifactMetaData = this.getLatestArtifactMetaDataInternal(groupId, artifactId);
-        latestArtifactMetaData.setReferences(this.getArtifactReferencesByContentId(latestArtifactMetaData.getContentId()));
+        latestArtifactMetaData.setReferences(this.getArtifactReferencesByCoordinates(latestArtifactMetaData.getContentId(), groupId, artifactId));
         return latestArtifactMetaData;
     }
 
@@ -2919,12 +2919,14 @@ public abstract class AbstractSqlRegistryStorage extends AbstractRegistryStorage
     }
 
     @Override
-    public List<ArtifactReferenceDto> getArtifactReferencesByContentId(long contentId) {
+    public List<ArtifactReferenceDto> getArtifactReferencesByCoordinates(long contentId, String groupId, String artifactId) {
         return handles.withHandleNoException( handle -> {
-            String sql = sqlStatements().selectReferencesByContentId();
+            String sql = sqlStatements().selectReferencesByCoordinates();
             return handle.createQuery(sql)
                     .bind(0, tenantContext().tenantId())
-                    .bind(1, contentId)
+                    .bind(1, groupId)
+                    .bind(2, artifactId)
+                    .bind(3, contentId)
                     .map(ReferenceMapper.instance)
                     .list();
         });

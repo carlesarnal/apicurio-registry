@@ -102,6 +102,11 @@ public class LoadBalanceRegistryClient implements RegistryClient {
         return getTarget().getLatestArtifact(groupId, artifactId);
     }
 
+    @Override
+    public ArtifactMetaData updateArtifact(String groupId, String artifactId, String version, String artifactName, String artifactDescription, String contentType, InputStream data, List<ArtifactReference> references) {
+        return getTarget().updateArtifact(groupId, artifactId, version, artifactName, artifactDescription, contentType, data, references);
+    }
+
     /**
      * @param groupId
      * @param artifactId
@@ -350,6 +355,11 @@ public class LoadBalanceRegistryClient implements RegistryClient {
     public VersionMetaData createArtifactVersion(String groupId, String artifactId, String version, String name, String description, String contentType,
             InputStream data) {
         return getTarget().createArtifactVersion(groupId, artifactId, version, name, description,contentType, data);
+    }
+
+    @Override
+    public VersionMetaData createArtifactVersion(String groupId, String artifactId, String version, String artifactName, String artifactDescription, String contentType, InputStream data, List<ArtifactReference> references) {
+        return getTarget().createArtifactVersion(groupId, artifactId, version, artifactName, artifactDescription, contentType, data, references);
     }
 
     /**

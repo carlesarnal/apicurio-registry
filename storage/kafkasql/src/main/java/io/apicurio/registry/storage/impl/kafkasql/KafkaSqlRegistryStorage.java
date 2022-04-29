@@ -1175,8 +1175,8 @@ public class KafkaSqlRegistryStorage extends AbstractRegistryStorage {
     }
 
     @Override
-    public List<ArtifactReferenceDto> getArtifactReferencesByContentId(long contentId) {
-        return sqlStore.getArtifactReferencesByContentId(contentId);
+    public List<ArtifactReferenceDto> getArtifactReferencesByCoordinates(long contentId, String groupId, String artifactId) {
+        return sqlStore.getArtifactReferencesByCoordinates(contentId, groupId, artifactId);
     }
 
     /**
