@@ -138,6 +138,12 @@
             <artifactId>quarkus-agroal</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>io.apicurio</groupId>
+            <artifactId>apicurio-codegen-quarkus-extension</artifactId>
+            <version>${apicurio-codegen.version}</version>
+        </dependency>
+
         <!-- Sentry -->
         <dependency>
             <groupId>io.sentry</groupId>
@@ -272,9 +278,13 @@
                     <execution>
                         <goals>
                             <goal>build</goal>
+                            <goal>generate-code</goal>
                         </goals>
                     </execution>
                 </executions>
+                <configuration>
+
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
