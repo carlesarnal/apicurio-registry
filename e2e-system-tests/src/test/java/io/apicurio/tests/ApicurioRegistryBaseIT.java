@@ -16,6 +16,7 @@
 
 package io.apicurio.tests;
 
+import io.apicurio.registry.deployment.PortForwardManager;
 import io.apicurio.tests.utils.Constants;
 import io.apicurio.tests.utils.LoadBalanceRegistryClient;
 import io.apicurio.tests.utils.RegistryWaitUtils;
@@ -49,6 +50,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -90,7 +92,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @DisplayNameGeneration(SimpleDisplayName.class)
 @TestInstance(Lifecycle.PER_CLASS)
-public class ApicurioRegistryBaseIT implements TestSeparator, Constants {
+@ExtendWith(PortForwardManager.class)
+public class ApicurioRegistryBaseIT implements TestSeparator, Constants  {
 
     private static final Logger log = LoggerFactory.getLogger(TestUtils.class);
 
