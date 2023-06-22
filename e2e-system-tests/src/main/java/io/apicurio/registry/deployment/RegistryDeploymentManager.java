@@ -129,11 +129,13 @@ public class RegistryDeploymentManager implements TestExecutionListener {
             deployKafkaApp();
         }
 
+
         //No matter the storage type, create port forward so the application is reachable from the tests
         registryPortForward = kubernetesClient.services()
                 .inNamespace(TEST_NAMESPACE)
                 .withName(APPLICATION_SERVICE)
                 .portForward(8080, 8080);
+
     }
 
 
