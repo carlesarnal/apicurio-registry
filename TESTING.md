@@ -58,7 +58,7 @@ For this purpose the best example can be found in our [Github Actions Workflows]
 
 We have another project in order to run Kubernetes/Openshift tests that combine testing for [Apicurio Registry Operator](https://github.com/Apicurio/apicurio-registry-operator) and functionality testing for [Apicurio Registry](https://github.com/Apicurio/apicurio-registry-operator). It is a [new testsuite](https://github.com/Apicurio/apicurio-registry-k8s-tests-e2e) that internally can execute the java Integration Tests that can be found in this repository. We often refer to this testsuite as the e2e testsuite.
 
-## Integration Tests testsuite internall details
+## Integration Tests testsuite internal details
 
 The Integration Tests testsuite is written in Java and we use JUnit 5 .
 

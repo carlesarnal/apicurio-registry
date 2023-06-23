@@ -363,7 +363,7 @@ run-kafkasql-integration-tests:
 	@echo "----------------------------------------------------------------------"
 	@echo "                 Running KafkaSql Integration Tests                        "
 	@echo "----------------------------------------------------------------------"
-	./mvnw verify --no-transfer-progress -Pe2e-tests -P$(INTEGRATION_TESTS_PROFILE) -Pkafkasql -pl e2e-system-tests -Dmaven.javadoc.skip=true --no-transfer-progress
+	./mvnw verify --no-transfer-progress -Pe2e-tests -P$(INTEGRATION_TESTS_PROFILE) -Plocal-kafka -pl e2e-system-tests -Dmaven.javadoc.skip=true --no-transfer-progress
 
 .PHONY: run-multitenancy-integration-tests ## Runs multitenancy integration tests
 run-multitenancy-integration-tests:
@@ -398,7 +398,7 @@ run-kafkasql-auth-integration-tests:
 	@echo "----------------------------------------------------------------------"
 	@echo "                Running KafkaSQL Auth Integration Tests               "
 	@echo "----------------------------------------------------------------------"
-	./mvnw verify --no-transfer-progress -Pe2e-tests -Pauth -Pkafkasql -pl e2e-system-tests -Dmaven.javadoc.skip=true --no-transfer-progress
+	./mvnw verify --no-transfer-progress -Pe2e-tests -Pauth -Plocal-kafka -pl e2e-system-tests -Dmaven.javadoc.skip=true --no-transfer-progress
 
 .PHONY: run-mssql-legacy-tests ## Runs mssql legacy tests
 run-mssql-legacy-tests:
