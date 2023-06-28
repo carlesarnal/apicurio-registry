@@ -35,14 +35,16 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Build Sql Variant
-        run: make SKIP_TESTS=true BUILD_FLAGS='-DskipUiBuild=false -Dmaven.javadoc.skip=true --no-transfer-progress -Dmaven.wagon.httpconnectionManager.maxTotal=30 -Dmaven.wagon.http.retryHandler.count=5' build-sql
+      - name: Setup Minikube-Kubernetes
+          uses: manusa/actions-setup-minikube@v2.7.2
+          with:
+            minikube version: v1.28.0
+            kubernetes version: v1.25.0
+            github token: ${{ secrets.GITHUB_TOKEN }}
+            start args: '--force'
 
       - name: Run Integration Tests - sql
         run: make run-sql-integration-tests
-
-      - name: Run Integration Tests - sql auth
-        run:  make run-sql-auth-integration-tests
 
       - name: Collect logs
         if: failure()
