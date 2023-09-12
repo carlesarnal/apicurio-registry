@@ -16,8 +16,8 @@
 
 package io.apicurio.registry.resolver;
 
+import com.microsoft.kiota.ApiException;
 import io.apicurio.registry.resolver.strategy.ArtifactCoordinates;
-import io.apicurio.registry.rest.client.exception.RateLimitedClientException;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -199,16 +200,14 @@ public class ERCache<V> {
                     return Result.ok(value);
                 else {
                     return Result.error(new NullPointerException("Could not retrieve schema for the cache. " +
-                        "Loading function returned null."));
+                            "Loading function returned null."));
                 }
             } catch (RuntimeException e) {
-                // Rethrow the exception if we are not going to retry any more OR
-                // the exception is NOT caused by throttling. This prevents
-                // retries in cases where it does not make sense,
-                // e.g. an ArtifactNotFoundException is thrown.
-                // TODO Add additional exceptions that should cause a retry.
-                if (i == retries || !(e instanceof RateLimitedClientException))
-                    return Result.error(e);
+                // TODO: verify if this is really needed, retries are already baked into the adapter ...
+                if (i == retries || !(e.getCause() != null && e.getCause() instanceof ExecutionException
+                        && e.getCause().getCause() != null && e.getCause().getCause() instanceof ApiException
+                        && (((ApiException) e.getCause().getCause()).responseStatusCode == 429)))
+                    return Result.error(new RuntimeException(e));
             }
             try {
                 Thread.sleep(backoff.toMillis());
