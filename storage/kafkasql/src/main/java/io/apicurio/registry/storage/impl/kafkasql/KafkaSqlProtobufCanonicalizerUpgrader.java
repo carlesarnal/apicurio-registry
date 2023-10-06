@@ -80,10 +80,11 @@ public class KafkaSqlProtobufCanonicalizerUpgrader implements IDbUpgrader {
         byte[] canonicalContentBytes = canonicalContent.bytes();
         String canonicalContentHash = DigestUtils.sha256Hex(canonicalContentBytes);
 
+        /*
         if (canonicalContentHash.equals(tenantContentEntity.contentEntity.canonicalHash)) {
             //canonical hash is correct, skipping
             return;
-        }
+        }*/
 
         logger.debug("Protobuf content canonicalHash outdated value detected, updating contentId {}", contentEntity.contentId);
 

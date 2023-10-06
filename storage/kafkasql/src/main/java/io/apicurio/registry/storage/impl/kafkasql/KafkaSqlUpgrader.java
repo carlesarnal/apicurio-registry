@@ -29,7 +29,6 @@ import javax.inject.Inject;
 @ApplicationScoped
 public class KafkaSqlUpgrader {
 
-
     @Inject
     HandleFactory handles;
 
