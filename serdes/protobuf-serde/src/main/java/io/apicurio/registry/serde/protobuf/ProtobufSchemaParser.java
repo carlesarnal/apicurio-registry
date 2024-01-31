@@ -36,6 +36,7 @@ import io.apicurio.registry.utils.protobuf.schema.ProtobufSchema;
 import org.apache.kafka.common.errors.SerializationException;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -93,8 +94,9 @@ public class ProtobufSchemaParser<U extends Message> implements SchemaParser<Pro
         try {
             DescriptorProtos.FileDescriptorProto fileDescriptorProto = DescriptorProtos.FileDescriptorProto.parseFrom(rawSchema);
             ProtoFileElement protoFileElement = FileDescriptorUtils.fileDescriptorToProtoFile(fileDescriptorProto);
-            return new ProtobufSchema(FileDescriptorUtils.protoFileToFileDescriptor(fileDescriptorProto), protoFileElement);
-        } catch (InvalidProtocolBufferException | DescriptorValidationException e) {
+            Descriptors.Descriptor descriptor = FileDescriptorUtils.toDescriptor(fileDescriptorProto.getName(), protoFileElement, Collections.emptyMap());
+            return new ProtobufSchema(descriptor, protoFileElement);
+        } catch (InvalidProtocolBufferException e) {
             throw new RuntimeException(e);
         }
     }
