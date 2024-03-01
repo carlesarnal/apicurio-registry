@@ -18,7 +18,6 @@ package io.apicurio.registry.utils.protobuf.schema;
 
 import java.util.Objects;
 
-import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.FileDescriptor;
 import com.squareup.wire.schema.internal.parser.ProtoFileElement;
