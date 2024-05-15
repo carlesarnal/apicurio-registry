@@ -630,36 +630,6 @@ The following {registry} configuration options are available for each component 
 |`sa`
 |`3.0.0.Final`
 |Gitops green datasource username
-|`apicurio.datasource.jdbc.initial-size`
-|`string`
-|`20`
-|`3.0.0.Final`
-|Application datasource pool initial size
-|`apicurio.datasource.jdbc.max-size`
-|`string`
-|`100`
-|`3.0.0.Final`
-|Application datasource pool maximum size
-|`apicurio.datasource.jdbc.min-size`
-|`string`
-|`20`
-|`3.0.0.Final`
-|Application datasource pool minimum size
-|`apicurio.datasource.password`
-|`string`
-|`sa`
-|`3.0.0.Final`
-|Application datasource password
-|`apicurio.datasource.url`
-|`string`
-|`jdbc:h2:mem:registry_db`
-|`3.0.0.Final`
-|Application datasource jdbc url
-|`apicurio.datasource.username`
-|`string`
-|`sa`
-|`3.0.0.Final`
-|Application datasource username
 |`apicurio.kafkasql.bootstrap.servers`
 |`string`
 |

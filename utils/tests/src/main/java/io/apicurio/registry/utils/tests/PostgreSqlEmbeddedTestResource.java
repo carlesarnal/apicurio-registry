@@ -52,9 +52,9 @@ public class PostgreSqlEmbeddedTestResource implements QuarkusTestResourceLifecy
 
         Map<String, String> props = new HashMap<>();
         props.put("apicurio.storage.sql.kind", "postgresql");
-        props.put("apicurio.datasource.url", datasourceUrl);
-        props.put("apicurio.datasource.username", "postgres");
-        props.put("apicurio.datasource.password", "postgres");
+        props.put("quarkus.datasource.postgresql.jdbc.url", datasourceUrl);
+        props.put("quarkus.datasource.h2.active", "false");
+        props.put("quarkus.datasource.postgresql.active", "true");
 
         return props;
     }

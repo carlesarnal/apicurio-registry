@@ -39,9 +39,8 @@ public class MsSqlEmbeddedTestResource implements QuarkusTestResourceLifecycleMa
             if ("mas".equals(currentEnv)) {
                 Map<String, String> props = new HashMap<>();
                 props.put("apicurio.storage.sql.kind", "mssql");
-                props.put("apicurio.datasource.url", "jdbc:sqlserver://mssql;");
-                props.put("apicurio.datasource.username", "test");
-                props.put("apicurio.datasource.password", "test");
+                props.put("quarkus.datasource.h2.active", "true");
+                props.put("quarkus.datasource.mssql.active", "true");
                 return props;
             } else {
                 return startMsSql();
