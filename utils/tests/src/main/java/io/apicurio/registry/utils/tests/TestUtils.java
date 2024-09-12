@@ -407,9 +407,10 @@ public class TestUtils {
             Assertions.fail("Expected (but didn't get) a registry client application exception with code: "
                     + expectedCode);
         } catch (Exception ex) {
-            if (ex instanceof io.apicurio.registry.rest.client.models.Error) {
+            if (ex instanceof io.apicurio.registry.rest.client.models.ProblemDetails) {
                 Assertions.assertEquals(expectedErrorName,
-                        ((io.apicurio.registry.rest.client.models.Error) ex).getName(), () -> "ex: " + ex);
+                        ((io.apicurio.registry.rest.client.models.ProblemDetails) ex).getName(),
+                        () -> "ex: " + ex);
                 Assertions.assertEquals(expectedCode, errorCodeExtractor.apply(ex));
             } else {
                 Assertions.assertEquals(expectedCode, ((ApiException) ex).getResponseStatusCode());
@@ -419,25 +420,46 @@ public class TestUtils {
 
     // some impl details ...
 
-    public static void waitForSchema(Predicate<Long> schemaFinder, byte[] bytes) throws Exception {
-        waitForSchema(schemaFinder, bytes, ByteBuffer::getLong);
+    public static void waitForSchema(Predicate<Integer> schemaFinder, byte[] bytes) throws Exception {
+        waitForSchema(schemaFinder, bytes, ByteBuffer::getInt);
     }
 
-    public static void waitForSchema(Predicate<Long> schemaFinder, byte[] bytes,
-            Function<ByteBuffer, Long> globalIdExtractor) throws Exception {
+    public static void waitForSchemaLongId(Predicate<Long> schemaFinder, byte[] bytes) throws Exception {
+        waitForSchemaLongId(schemaFinder, bytes, ByteBuffer::getLong);
+    }
+
+    public static void waitForSchema(Predicate<Integer> schemaFinder, byte[] bytes,
+            Function<ByteBuffer, Integer> idExtractor) throws Exception {
         waitForSchemaCustom(schemaFinder, bytes, input -> {
             ByteBuffer buffer = ByteBuffer.wrap(input);
             buffer.get(); // magic byte
-            return globalIdExtractor.apply(buffer);
+            return idExtractor.apply(buffer);
+        });
+    }
+
+    public static void waitForSchemaLongId(Predicate<Long> schemaFinder, byte[] bytes,
+            Function<ByteBuffer, Long> idExtractor) throws Exception {
+        waitForSchemaCustomLongId(schemaFinder, bytes, input -> {
+            ByteBuffer buffer = ByteBuffer.wrap(input);
+            buffer.get(); // magic byte
+            return idExtractor.apply(buffer);
         });
     }
 
     // we can have non-default Apicurio serialization; e.g. ExtJsonConverter
-    public static void waitForSchemaCustom(Predicate<Long> schemaFinder, byte[] bytes,
-            Function<byte[], Long> globalIdExtractor) throws Exception {
-        long id = globalIdExtractor.apply(bytes);
+    public static void waitForSchemaCustom(Predicate<Integer> schemaFinder, byte[] bytes,
+            Function<byte[], Integer> idExtractor) throws Exception {
+        int id = idExtractor.apply(bytes);
         boolean schemaExists = retry(() -> schemaFinder.test(id));
-        Assertions.assertTrue(schemaExists); // wait for global id to populate
+        Assertions.assertTrue(schemaExists); // wait for id to populate
+    }
+
+    // we can have non-default Apicurio serialization; e.g. ExtJsonConverter
+    public static void waitForSchemaCustomLongId(Predicate<Long> schemaFinder, byte[] bytes,
+            Function<byte[], Long> idExtractor) throws Exception {
+        long id = idExtractor.apply(bytes);
+        boolean schemaExists = retry(() -> schemaFinder.test(id));
+        Assertions.assertTrue(schemaExists); // wait for id to populate
     }
 
     public static final String normalizeMultiLineString(String value) throws Exception {

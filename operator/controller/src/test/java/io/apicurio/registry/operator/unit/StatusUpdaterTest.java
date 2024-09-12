@@ -1,8 +1,8 @@
 package io.apicurio.registry.operator.unit;
 
-import io.apicur.registry.v1.ApicurioRegistry;
-import io.apicur.registry.v1.apicurioregistrystatus.Conditions;
 import io.apicurio.registry.operator.StatusUpdater;
+import io.apicurio.registry.operator.api.v1.ApicurioRegistry3;
+import io.apicurio.registry.operator.api.v1.status.ConditionStatus;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import org.junit.jupiter.api.Test;
 
@@ -10,7 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class StatusUpdaterTest {
 
-    private static final ApicurioRegistry defaultRegistry = new ApicurioRegistry();
+    private static final ApicurioRegistry3 defaultRegistry = new ApicurioRegistry3();
 
     static {
         var meta = new ObjectMeta();
@@ -30,7 +30,7 @@ public class StatusUpdaterTest {
         // Assert
         assertThat(status).isNotNull();
         assertThat(status.getConditions()).singleElement();
-        assertThat(status.getConditions().get(0).getStatus()).isEqualTo(Conditions.Status.TRUE);
+        assertThat(status.getConditions().get(0).getStatus()).isEqualTo(ConditionStatus.TRUE);
         assertThat(status.getConditions().get(0).getType()).isEqualTo("ERROR");
     }
 }

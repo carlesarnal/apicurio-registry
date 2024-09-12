@@ -3,16 +3,16 @@ package io.apicurio.tests.migration;
 import io.apicurio.registry.client.auth.VertXAuthFactory;
 import io.apicurio.registry.model.BranchId;
 import io.apicurio.registry.rest.client.RegistryClient;
-import io.apicurio.registry.rest.client.models.Error;
+import io.apicurio.registry.rest.client.models.ProblemDetails;
 import io.apicurio.registry.types.ArtifactType;
 import io.apicurio.registry.types.ContentTypes;
 import io.apicurio.registry.types.VersionState;
 import io.apicurio.registry.utils.IoUtil;
+import io.apicurio.registry.utils.impexp.EntityWriter;
 import io.apicurio.registry.utils.impexp.v3.ArtifactEntity;
 import io.apicurio.registry.utils.impexp.v3.ArtifactVersionEntity;
 import io.apicurio.registry.utils.impexp.v3.BranchEntity;
 import io.apicurio.registry.utils.impexp.v3.ContentEntity;
-import io.apicurio.registry.utils.impexp.v3.EntityWriter;
 import io.apicurio.tests.ApicurioRegistryBaseIT;
 import io.apicurio.tests.serdes.apicurio.JsonSchemaMsgFactory;
 import io.apicurio.tests.utils.Constants;
@@ -78,7 +78,7 @@ public class GenerateCanonicalHashImportIT extends ApicurioRegistryBaseIT {
                         .versions().byVersionExpression("1.0").content().get();
                 assertNotNull(registryContent);
                 assertEquals(content, IoUtil.toString(registryContent));
-            } catch (Error e) {
+            } catch (ProblemDetails e) {
                 System.out.println("---");
                 System.out.println("REST CLIENT ERROR>> " + e.getDetail());
                 System.out.println("---");

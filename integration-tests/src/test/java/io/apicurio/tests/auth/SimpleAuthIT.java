@@ -45,11 +45,6 @@ public class SimpleAuthIT extends ApicurioRegistryBaseIT {
     }
 
     @Override
-    public void cleanArtifacts() throws Exception {
-        // Don't clean
-    }
-
-    @Override
     protected RegistryClient createRegistryClient() {
         var auth = buildOIDCWebClient(authServerUrlConfigured, JWKSMockServer.ADMIN_CLIENT_ID, "test1");
         return createClient(auth);
@@ -193,10 +188,11 @@ public class SimpleAuthIT extends ApicurioRegistryBaseIT {
     }
 
     protected void assertArtifactNotFound(Exception exception) {
-        Assertions.assertEquals(io.apicurio.registry.rest.client.models.Error.class, exception.getClass());
+        Assertions.assertEquals(io.apicurio.registry.rest.client.models.ProblemDetails.class,
+                exception.getClass());
         Assertions.assertEquals("ArtifactNotFoundException",
-                ((io.apicurio.registry.rest.client.models.Error) exception).getName());
+                ((io.apicurio.registry.rest.client.models.ProblemDetails) exception).getName());
         Assertions.assertEquals(404,
-                ((io.apicurio.registry.rest.client.models.Error) exception).getErrorCode());
+                ((io.apicurio.registry.rest.client.models.ProblemDetails) exception).getStatus());
     }
 }

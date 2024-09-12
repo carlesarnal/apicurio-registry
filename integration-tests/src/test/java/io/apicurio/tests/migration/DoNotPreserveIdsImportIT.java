@@ -37,16 +37,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 @Tag(Constants.MIGRATION)
 @Disabled
 public class DoNotPreserveIdsImportIT extends ApicurioRegistryBaseIT {
-
     private static final Logger log = LoggerFactory.getLogger(DataMigrationIT.class);
     public static InputStream doNotPreserveIdsImportDataToImport;
     public static JsonSchemaMsgFactory jsonSchema;
     public static Map<String, String> doNotPreserveIdsImportArtifacts = new HashMap<>();
-
-    @Override
-    public void cleanArtifacts() throws Exception {
-        // Don't clean up
-    }
 
     @Test
     public void testDoNotPreserveIdsImport() throws Exception {
@@ -98,17 +92,15 @@ public class DoNotPreserveIdsImportIT extends ApicurioRegistryBaseIT {
         adapter.sendPrimitive(importReq, new HashMap<>(), Void.class);
 
         // Check that the import was successful
-        retry(() -> {
-            for (var entry : doNotPreserveIdsImportArtifacts.entrySet()) {
-                String groupId = entry.getKey().split(":")[0];
-                String artifactId = entry.getKey().split(":")[1];
-                String content = entry.getValue();
-                var registryContent = dest.groups().byGroupId(groupId).artifacts().byArtifactId(artifactId)
-                        .versions().byVersionExpression("branch=latest").content().get();
-                assertNotNull(registryContent);
-                assertEquals(content, IoUtil.toString(registryContent));
-            }
-        });
+        for (var entry : doNotPreserveIdsImportArtifacts.entrySet()) {
+            String groupId = entry.getKey().split(":")[0];
+            String artifactId = entry.getKey().split(":")[1];
+            String content = entry.getValue();
+            var registryContent = dest.groups().byGroupId(groupId).artifacts().byArtifactId(artifactId)
+                    .versions().byVersionExpression("branch=latest").content().get();
+            assertNotNull(registryContent);
+            assertEquals(content, IoUtil.toString(registryContent));
+        }
     }
 
     public static class DoNotPreserveIdsInitializer extends AbstractTestDataInitializer {

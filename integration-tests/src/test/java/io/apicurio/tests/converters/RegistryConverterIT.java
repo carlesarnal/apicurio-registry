@@ -45,11 +45,6 @@ import java.util.function.Function;
 @QuarkusIntegrationTest
 public class RegistryConverterIT extends ApicurioRegistryBaseIT {
 
-    @Override
-    public void cleanArtifacts() throws Exception {
-        // Don't clean up
-    }
-
     @Test
     public void testConfiguration() throws Exception {
         String groupId = "ns_" + TestUtils.generateGroupId().replace("-", "_");
@@ -113,9 +108,9 @@ public class RegistryConverterIT extends ApicurioRegistryBaseIT {
             byte[] bytes = converter.fromConnectData(subject, sc, struct);
 
             // some impl details ...
-            TestUtils.waitForSchema(globalId -> {
+            TestUtils.waitForSchema(contentId -> {
                 try {
-                    return registryClient.ids().globalIds().byGlobalId(globalId).get()
+                    return registryClient.ids().contentIds().byContentId(contentId.longValue()).get()
                             .readAllBytes().length > 0;
                 } catch (IOException e) {
                     throw new RuntimeException(e);
@@ -158,9 +153,9 @@ public class RegistryConverterIT extends ApicurioRegistryBaseIT {
             byte[] bytes = converter.fromConnectData(subject, sc, struct);
 
             // some impl details ...
-            TestUtils.waitForSchema(globalId -> {
+            TestUtils.waitForSchema(contentId -> {
                 try {
-                    return registryClient.ids().globalIds().byGlobalId(globalId).get()
+                    return registryClient.ids().contentIds().byContentId(contentId.longValue()).get()
                             .readAllBytes().length > 0;
                 } catch (IOException e) {
                     throw new RuntimeException(e);
@@ -192,9 +187,9 @@ public class RegistryConverterIT extends ApicurioRegistryBaseIT {
             byte[] bytes = converter.fromConnectData(subject, sc, struct);
 
             // some impl details ...
-            TestUtils.waitForSchema(globalId -> {
+            TestUtils.waitForSchema(contentId -> {
                 try {
-                    return registryClient.ids().globalIds().byGlobalId(globalId).get()
+                    return registryClient.ids().contentIds().byContentId(contentId.longValue()).get()
                             .readAllBytes().length > 0;
                 } catch (IOException e) {
                     throw new RuntimeException(e);
@@ -212,7 +207,7 @@ public class RegistryConverterIT extends ApicurioRegistryBaseIT {
             try {
                 ObjectMapper mapper = new ObjectMapper();
                 JsonNode root = mapper.readTree(input);
-                return root.get("schemaId").asLong();
+                return root.get("schemaId").asInt();
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
@@ -247,9 +242,9 @@ public class RegistryConverterIT extends ApicurioRegistryBaseIT {
             byte[] bytes = converter.fromConnectData(subject, envelopeSchema, envelopeStruct);
 
             // some impl details ...
-            TestUtils.waitForSchema(globalId -> {
+            TestUtils.waitForSchema(contentId -> {
                 try {
-                    return registryClient.ids().globalIds().byGlobalId(globalId).get()
+                    return registryClient.ids().contentIds().byContentId(contentId.longValue()).get()
                             .readAllBytes().length > 0;
                 } catch (IOException e) {
                     throw new RuntimeException(e);
@@ -324,12 +319,12 @@ public class RegistryConverterIT extends ApicurioRegistryBaseIT {
     public void testCompactJson() throws Exception {
         testJson(createRegistryClient(), new CompactFormatStrategy(), input -> {
             ByteBuffer buffer = AbstractKafkaSerDe.getByteBuffer(input);
-            return buffer.getLong();
+            return buffer.getInt();
         });
     }
 
-    private void testJson(RegistryClient restClient, FormatStrategy formatStrategy, Function<byte[], Long> fn)
-            throws Exception {
+    private void testJson(RegistryClient restClient, FormatStrategy formatStrategy,
+            Function<byte[], Integer> fn) throws Exception {
         try (ExtJsonConverter converter = new ExtJsonConverter(restClient)) {
             converter.setFormatStrategy(formatStrategy);
             Map<String, Object> config = new HashMap<>();
@@ -344,9 +339,10 @@ public class RegistryConverterIT extends ApicurioRegistryBaseIT {
             byte[] bytes = converter.fromConnectData("extjson", sc, struct);
 
             // some impl details ...
-            TestUtils.waitForSchemaCustom(globalId -> {
+            TestUtils.waitForSchemaCustom(contentId -> {
                 try {
-                    return restClient.ids().globalIds().byGlobalId(globalId).get().readAllBytes().length > 0;
+                    return restClient.ids().contentIds().byContentId(contentId.longValue()).get()
+                            .readAllBytes().length > 0;
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }

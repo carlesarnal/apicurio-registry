@@ -63,7 +63,6 @@ import io.apicurio.registry.storage.error.RuleNotFoundException;
 import io.apicurio.registry.storage.error.VersionAlreadyExistsException;
 import io.apicurio.registry.storage.error.VersionAlreadyExistsOnBranchException;
 import io.apicurio.registry.storage.error.VersionNotFoundException;
-import io.apicurio.registry.storage.impexp.EntityInputStream;
 import io.apicurio.registry.storage.impl.sql.jdb.Handle;
 import io.apicurio.registry.storage.impl.sql.jdb.Query;
 import io.apicurio.registry.storage.impl.sql.jdb.RowMapper;
@@ -102,6 +101,8 @@ import io.apicurio.registry.utils.DtoUtil;
 import io.apicurio.registry.utils.IoUtil;
 import io.apicurio.registry.utils.StringUtil;
 import io.apicurio.registry.utils.impexp.Entity;
+import io.apicurio.registry.utils.impexp.EntityInputStream;
+import io.apicurio.registry.utils.impexp.ManifestEntity;
 import io.apicurio.registry.utils.impexp.v3.ArtifactEntity;
 import io.apicurio.registry.utils.impexp.v3.ArtifactRuleEntity;
 import io.apicurio.registry.utils.impexp.v3.ArtifactVersionEntity;
@@ -111,7 +112,6 @@ import io.apicurio.registry.utils.impexp.v3.ContentEntity;
 import io.apicurio.registry.utils.impexp.v3.GlobalRuleEntity;
 import io.apicurio.registry.utils.impexp.v3.GroupEntity;
 import io.apicurio.registry.utils.impexp.v3.GroupRuleEntity;
-import io.apicurio.registry.utils.impexp.v3.ManifestEntity;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
@@ -2141,6 +2141,7 @@ public abstract class AbstractSqlRegistryStorage implements RegistryStorage {
         manifest.systemName = system.getName();
         manifest.systemDescription = system.getDescription();
         manifest.systemVersion = system.getVersion();
+        manifest.dbVersion = "" + DB_VERSION;
         handler.apply(manifest);
 
         // Export all content
@@ -2818,7 +2819,8 @@ public abstract class AbstractSqlRegistryStorage implements RegistryStorage {
                     entity.labels.forEach((k, v) -> {
                         handle.createUpdate(sqlStatements.insertArtifactLabel())
                                 .bind(0, normalizeGroupId(entity.groupId)).bind(1, entity.artifactId)
-                                .bind(2, k.toLowerCase()).bind(3, v.toLowerCase()).execute();
+                                .bind(2, k.toLowerCase()).bind(3, v == null ? null : v.toLowerCase())
+                                .execute();
                     });
                 }
             } else {
@@ -2851,7 +2853,8 @@ public abstract class AbstractSqlRegistryStorage implements RegistryStorage {
                 if (entity.labels != null && !entity.labels.isEmpty()) {
                     entity.labels.forEach((k, v) -> {
                         handle.createUpdate(sqlStatements.insertVersionLabel()).bind(0, entity.globalId)
-                                .bind(1, k.toLowerCase()).bind(2, v.toLowerCase()).execute();
+                                .bind(1, k.toLowerCase()).bind(2, v == null ? null : v.toLowerCase())
+                                .execute();
                     });
                 }
 
@@ -2922,6 +2925,13 @@ public abstract class AbstractSqlRegistryStorage implements RegistryStorage {
                     .bind(1, entity.globalId).bind(2, entity.owner).bind(3, new Date(entity.createdOn))
                     .bind(4, entity.value).execute();
             return null;
+        });
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return handles.withHandle(handle -> {
+            return handle.createQuery(sqlStatements.selectAllContentCount()).mapTo(Long.class).one() == 0;
         });
     }
 
