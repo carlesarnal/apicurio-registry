@@ -1,12 +1,12 @@
-package io.apicurio.registry.serde.jsonschema.nats.client.streaming.consumers;
+package io.apicurio.registry.serde.avro.nats.client.streaming.consumers;
 
 import io.nats.client.Message;
 
 public class NatsConsumerRecordImpl<T> implements NatsConsumerRecord<T> {
 
-    private Message natsMessage;
+    private final Message natsMessage;
 
-    private T payload;
+    private final T payload;
 
     public NatsConsumerRecordImpl(Message natsMessage, T payload) {
         this.natsMessage = natsMessage;

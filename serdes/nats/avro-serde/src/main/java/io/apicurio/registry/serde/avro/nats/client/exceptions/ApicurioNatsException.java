@@ -1,4 +1,4 @@
-package io.apicurio.registry.serde.jsonschema.nats.client.exceptions;
+package io.apicurio.registry.serde.avro.nats.client.exceptions;
 
 public class ApicurioNatsException extends RuntimeException {
 

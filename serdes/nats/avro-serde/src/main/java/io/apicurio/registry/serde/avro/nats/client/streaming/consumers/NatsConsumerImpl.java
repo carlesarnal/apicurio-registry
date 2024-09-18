@@ -1,24 +1,27 @@
-package io.apicurio.registry.serde.jsonschema.nats.client.streaming.consumers;
+package io.apicurio.registry.serde.avro.nats.client.streaming.consumers;
 
-import io.apicurio.registry.serde.jsonschema.JsonSchemaDeserializer;
-import io.apicurio.registry.serde.jsonschema.JsonSchemaSerializerConfig;
+import io.apicurio.registry.serde.avro.AvroDeserializer;
+import io.apicurio.registry.serde.avro.AvroSerdeConfig;
 import io.nats.client.Connection;
+import io.nats.client.JetStreamApiException;
 import io.nats.client.JetStreamSubscription;
 import io.nats.client.Message;
 import io.nats.client.PullSubscribeOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
+import java.util.Optional;
 
 public class NatsConsumerImpl<DATA> implements NatsConsumer<DATA> {
 
-    private final JsonSchemaDeserializer<DATA> deserializer;
+    private final AvroDeserializer<DATA> deserializer;
 
     private final Connection connection;
 
@@ -31,20 +34,18 @@ public class NatsConsumerImpl<DATA> implements NatsConsumer<DATA> {
     private static final Logger logger = LoggerFactory.getLogger(NatsConsumerImpl.class);
 
     public NatsConsumerImpl(Connection connection, String subject, PullSubscribeOptions subscribeOptions,
-                            Properties config) {
+            Map<String, Object> config) {
         this.connection = connection;
         this.subject = subject;
         this.subscribeOptions = subscribeOptions;
-        Map<String, Object> configs = new HashMap<>();
-        config.forEach((key, value) -> configs.put(key.toString(), value));
 
-        JsonSchemaSerializerConfig serializerConfig = new JsonSchemaSerializerConfig(configs);
-        deserializer = new JsonSchemaDeserializer<>();
+        AvroSerdeConfig serializerConfig = new AvroSerdeConfig(config);
+        deserializer = new AvroDeserializer<>();
 
         deserializer.configure(serializerConfig, false);
     }
 
-    private JetStreamSubscription getLazySubscription() throws Exception {
+    private JetStreamSubscription getLazySubscription() throws IOException, JetStreamApiException {
         if (subscription == null) {
             subscription = connection.jetStream().subscribe(subject, subscribeOptions);
         }
@@ -57,24 +58,26 @@ public class NatsConsumerImpl<DATA> implements NatsConsumer<DATA> {
     }
 
     @Override
-    public NatsConsumerRecord<DATA> receive() throws Exception {
+    public NatsConsumerRecord<DATA> receive() throws JetStreamApiException, IOException {
         return receive(Duration.ofSeconds(3));
     }
 
     @Override
-    public NatsConsumerRecord<DATA> receive(Duration timeout) throws Exception {
-        List<NatsConsumerRecord<DATA>> messages = receive(1, timeout);
-        return messages == null ? null : messages.get(0); // TODO
+    public NatsConsumerRecord<DATA> receive(Duration timeout) throws JetStreamApiException, IOException {
+        Collection<NatsConsumerRecord<DATA>> messages = receive(1, timeout);
+        Optional<NatsConsumerRecord<DATA>> record = messages.stream().findFirst();
+        return record.orElse(null);
     }
 
     @Override
-    public List<NatsConsumerRecord<DATA>> receive(int batchSize, Duration timeout) throws Exception {
-
+    public List<NatsConsumerRecord<DATA>> receive(int batchSize, Duration timeout)
+            throws JetStreamApiException, IOException {
         List<Message> messages = getLazySubscription().fetch(batchSize, timeout);
 
         if (messages == null || messages.isEmpty()) {
             logger.info("Receive timeout ({} ms)", timeout.toMillis());
-            return null; // TODO
+            // TODO consider throwing an exception?
+            return Collections.emptyList();
         }
 
         List<NatsConsumerRecord<DATA>> records = new ArrayList<>();

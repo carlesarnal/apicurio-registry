@@ -20,7 +20,7 @@
 
     <dependency>
       <groupId>io.apicurio</groupId>
-      <artifactId>apicurio-registry-serde-common-jsonschema</artifactId>
+      <artifactId>apicurio-registry-serde-common-avro</artifactId>
     </dependency>
 
     <dependency>

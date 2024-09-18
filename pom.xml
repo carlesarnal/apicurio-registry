@@ -89,6 +89,7 @@
     <module>serdes/kafka/protobuf-serde</module>
     <module>serdes/kafka/jsonschema-serde</module>
     <module>serdes/pulsar/avro-serde</module>
+    <module>serdes/nats/avro-serde</module>
     <module>distro</module>
     <module>docs</module>
     <module>java-sdk</module>
@@ -377,6 +378,11 @@
       <dependency>
         <groupId>io.apicurio</groupId>
         <artifactId>apicurio-registry-avro-serde-pulsar</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.apicurio</groupId>
+        <artifactId>apicurio-registry-avro-serde-nats</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>

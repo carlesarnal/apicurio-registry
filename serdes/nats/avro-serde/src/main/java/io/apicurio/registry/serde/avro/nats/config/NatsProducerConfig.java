@@ -1,4 +1,4 @@
-package io.apicurio.registry.serde.jsonschema.nats.config;
+package io.apicurio.registry.serde.avro.nats.config;
 
 public class NatsProducerConfig {
 
