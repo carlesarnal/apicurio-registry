@@ -33,6 +33,7 @@
       <artifactId>protobuf-java</artifactId>
     </dependency>
 
+
     <dependency>
       <groupId>com.squareup.wire</groupId>
       <artifactId>wire-schema</artifactId>
