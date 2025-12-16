@@ -1,24 +1,28 @@
-package io.apicurio.registry.utils.export;
+package io.apicurio.tests.migration;
 
-import io.apicurio.registry.client.RegistryClientFactory;
-import io.apicurio.registry.client.common.RegistryClientOptions;
-import io.apicurio.registry.rest.client.RegistryClient;
 import io.apicurio.registry.rest.client.models.ArtifactMetaData;
 import io.apicurio.registry.rest.client.models.ArtifactSearchResults;
 import io.apicurio.registry.rest.client.models.Rule;
 import io.apicurio.registry.rest.client.models.VersionMetaData;
 import io.apicurio.registry.types.RuleType;
+import io.apicurio.registry.utils.export.Export;
+import io.apicurio.tests.ApicurioRegistryBaseIT;
+import io.apicurio.tests.utils.Constants;
 import io.confluent.kafka.schemaregistry.avro.AvroSchema;
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.RestService;
 import io.confluent.kafka.schemaregistry.json.JsonSchema;
 import io.confluent.kafka.schemaregistry.protobuf.ProtobufSchema;
-import org.jboss.logging.Logger;
+import io.quarkus.test.junit.QuarkusIntegrationTest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.Network;
@@ -32,41 +36,35 @@ import java.util.Set;
 
 /**
  * Integration test for the Confluent Schema Registry export utility.
- *
- * This test uses Testcontainers to automatically start/stop:
- * - Confluent Schema Registry (with Kafka)
- * - Apicurio Registry
- *
- * Note: Set USE_EXTERNAL_APICURIO=true environment variable to use an external
- * Apicurio Registry instance instead of starting one with Testcontainers.
+ * <p>
+ * This test verifies the ability to export schemas from Confluent Schema Registry
+ * and import them into Apicurio Registry. It uses Testcontainers to start
+ * Confluent Schema Registry (with Kafka) and leverages the already-running
+ * Apicurio Registry from the integration test infrastructure.
  */
-public class ConfluentExporterTest {
+@QuarkusIntegrationTest
+@Tag(Constants.MIGRATION)
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+public class ConfluentExporterIT extends ApicurioRegistryBaseIT {
 
-    private static final Logger log = Logger.getLogger(ConfluentExporterTest.class);
+    private static final Logger log = LoggerFactory.getLogger(ConfluentExporterIT.class);
 
     private static final String EXPORT_ZIP_FILE = "target/confluent-schema-registry-export.zip";
-    private static final boolean USE_EXTERNAL_APICURIO = Boolean.parseBoolean(
-            System.getenv().getOrDefault("USE_EXTERNAL_APICURIO", "false"));
-    private static final String EXTERNAL_APICURIO_URL = System.getenv().getOrDefault(
-            "APICURIO_URL", "http://localhost:8080/apis/registry/v3");
 
-    private static Network network;
-    private static KafkaContainer kafka;
-    private static GenericContainer<?> schemaRegistry;
-    private static GenericContainer<?> apicurioRegistry;
-    private static String confluentUrl;
-    private static String apicurioUrl;
+    private Network network;
+    private KafkaContainer kafka;
+    private GenericContainer<?> schemaRegistry;
+    private String confluentUrl;
 
-    private static SchemaRegistryClient confluentClient;
-    private static RegistryClient apicurioClient;
+    private SchemaRegistryClient confluentClient;
 
     @BeforeAll
-    public static void startContainers() throws Exception {
+    public void startConfluentInfrastructure() throws Exception {
         log.info("=================================================================");
-        log.info("Starting Testcontainers...");
+        log.info("Starting Confluent Schema Registry infrastructure...");
         log.info("=================================================================");
 
-        // Create network
+        // Create network for Confluent components
         network = Network.newNetwork();
 
         // Start Kafka
@@ -89,74 +87,19 @@ public class ConfluentExporterTest {
         confluentUrl = "http://" + schemaRegistry.getHost() + ":" + schemaRegistry.getMappedPort(8081);
         log.info("Confluent Schema Registry started at: " + confluentUrl);
 
-        // Start Apicurio Registry (or use external instance)
-        if (USE_EXTERNAL_APICURIO) {
-            apicurioUrl = EXTERNAL_APICURIO_URL;
-            log.info("Using external Apicurio Registry at: " + apicurioUrl);
-        } else {
-            apicurioRegistry = new GenericContainer<>(DockerImageName.parse("quay.io/apicurio/apicurio-registry:latest-snapshot"))
-                    .withNetwork(network)
-                    .withExposedPorts(8080)
-                    .withEnv("QUARKUS_PROFILE", "prod")
-                    .withEnv("APICURIO_STORAGE_KIND", "sql")
-                    .withEnv("APICURIO_STORAGE_SQL_KIND", "h2");
-            apicurioRegistry.start();
-
-            String host = apicurioRegistry.getHost();
-            Integer port = apicurioRegistry.getMappedPort(8080);
-            apicurioUrl = "http://" + host + ":" + port + "/apis/registry/v3";
-            log.info("Apicurio Registry started at: " + apicurioUrl);
-
-            // Wait for Apicurio Registry to be ready
-            waitForApicurioReady(apicurioUrl);
-        }
-
-        // Create clients
+        // Create Confluent client
         RestService restService = new RestService(confluentUrl);
         confluentClient = new CachedSchemaRegistryClient(restService, 64, Collections.emptyMap());
-        RegistryClientOptions clientOptions = RegistryClientOptions.create(apicurioUrl);
-        apicurioClient = RegistryClientFactory.create(clientOptions);
 
         log.info("=================================================================");
-    }
-
-    /**
-     * Waits for Apicurio Registry to become ready by checking the health endpoint.
-     */
-    private static void waitForApicurioReady(String baseUrl) throws Exception {
-        String healthUrl = baseUrl.replace("/apis/registry/v3", "/health/ready");
-        log.info("Waiting for Apicurio Registry to be ready...");
-
-        int maxAttempts = 30;
-        for (int i = 0; i < maxAttempts; i++) {
-            try {
-                java.net.HttpURLConnection conn = (java.net.HttpURLConnection)
-                    new java.net.URL(healthUrl).openConnection();
-                conn.setRequestMethod("GET");
-                conn.setConnectTimeout(1000);
-                conn.setReadTimeout(1000);
-
-                if (conn.getResponseCode() == 200) {
-                    log.info("Apicurio Registry is ready!");
-                    return;
-                }
-            } catch (Exception e) {
-                // Ignore and retry
-            }
-            Thread.sleep(1000);
-        }
-        throw new RuntimeException("Apicurio Registry did not become ready in time");
     }
 
     @AfterAll
-    public static void stopContainers() {
+    public void stopConfluentInfrastructure() {
         log.info("=================================================================");
-        log.info("Stopping Testcontainers...");
+        log.info("Stopping Confluent Schema Registry infrastructure...");
         log.info("=================================================================");
 
-        if (apicurioRegistry != null) {
-            apicurioRegistry.stop();
-        }
         if (schemaRegistry != null) {
             schemaRegistry.stop();
         }
@@ -175,7 +118,7 @@ public class ConfluentExporterTest {
     }
 
     /**
-     * Full integration test: populate Confluent SR → export → import to Apicurio → verify.
+     * Full integration test: populate Confluent SR -> export -> import to Apicurio -> verify.
      */
     @Test
     public void testConfluentExportImportWorkflow() throws Exception {
@@ -267,7 +210,7 @@ public class ConfluentExporterTest {
      */
     private void importToApicurio(File exportFile) throws Exception {
         try (InputStream is = new FileInputStream(exportFile)) {
-            apicurioClient.admin().importEscaped().post(is, config -> {
+            registryClient.admin().importEscaped().post(is, config -> {
                 config.headers.putIfAbsent("Content-Type", Set.of("application/zip"));
             });
         }
@@ -278,47 +221,48 @@ public class ConfluentExporterTest {
      * Verifies that the imported data is correct in Apicurio Registry.
      */
     private void verifyImportedData() throws Exception {
+
         // Verify artifacts were imported
-        ArtifactSearchResults artifacts = apicurioClient.search().artifacts().get(config -> {
+        ArtifactSearchResults artifacts = registryClient.search().artifacts().get(config -> {
             config.queryParameters.limit = 100;
         });
 
         Assertions.assertNotNull(artifacts);
         Assertions.assertEquals(5, artifacts.getCount(), "Should have 5 artifacts imported");
-        log.info("✓ Found 5 artifacts");
+        log.info("Found 5 artifacts");
 
         // Verify specific artifacts exist with correct versions
         String[] expectedArtifacts = {"user-schema", "product-schema", "order-schema", "contact-schema", "person-schema"};
         for (String artifactId : expectedArtifacts) {
-            ArtifactMetaData metadata = apicurioClient.groups().byGroupId("default")
+            ArtifactMetaData metadata = registryClient.groups().byGroupId("default")
                     .artifacts().byArtifactId(artifactId).get();
             Assertions.assertNotNull(metadata, "Artifact " + artifactId + " should exist");
 
-            VersionMetaData versionMeta = apicurioClient.groups().byGroupId("default")
+            VersionMetaData versionMeta = registryClient.groups().byGroupId("default")
                     .artifacts().byArtifactId(artifactId).versions().byVersionExpression("1").get();
 
             Assertions.assertEquals("1", versionMeta.getVersion(), "Version should be '1'");
             Assertions.assertTrue(versionMeta.getGlobalId() > 0, "Global ID should be positive");
 
-            log.info("✓ Verified artifact: " + artifactId + " (globalId=" + versionMeta.getGlobalId() + ", version=1)");
+            log.info("Verified artifact: " + artifactId + " (globalId=" + versionMeta.getGlobalId() + ", version=1)");
         }
 
         // Verify global rule was imported
-        Rule globalCompatibilityRule = apicurioClient.admin().rules().byRuleType(RuleType.COMPATIBILITY.name()).get();
+        Rule globalCompatibilityRule = registryClient.admin().rules().byRuleType(RuleType.COMPATIBILITY.name()).get();
         Assertions.assertNotNull(globalCompatibilityRule);
         Assertions.assertEquals("BACKWARD", globalCompatibilityRule.getConfig());
-        log.info("✓ Global compatibility rule: BACKWARD");
+        log.info("Global compatibility rule: BACKWARD");
 
         // Verify artifact-level rule was imported for user-schema
-        Rule userSchemaRule = apicurioClient.groups().byGroupId("default")
+        Rule userSchemaRule = registryClient.groups().byGroupId("default")
                 .artifacts().byArtifactId("user-schema")
                 .rules().byRuleType(RuleType.COMPATIBILITY.name()).get();
         Assertions.assertNotNull(userSchemaRule);
         Assertions.assertEquals("FULL", userSchemaRule.getConfig());
-        log.info("✓ user-schema compatibility rule: FULL");
+        log.info("user-schema compatibility rule: FULL");
 
         // Verify branches were created (latest branch should exist)
-        var branches = apicurioClient.groups().byGroupId("default")
+        var branches = registryClient.groups().byGroupId("default")
                 .artifacts().byArtifactId("user-schema").branches().get();
         Assertions.assertNotNull(branches);
         Assertions.assertTrue(branches.getBranches().size() > 0, "Should have at least one branch");
@@ -326,7 +270,7 @@ public class ConfluentExporterTest {
         boolean latestBranchFound = branches.getBranches().stream()
                 .anyMatch(b -> "latest".equals(b.getBranchId()));
         Assertions.assertTrue(latestBranchFound, "Latest branch should exist");
-        log.info("✓ Latest branch exists for user-schema");
+        log.info("Latest branch exists for user-schema");
 
         log.info("\nAll verifications passed!");
     }

@@ -438,6 +438,11 @@
       </dependency>
       <dependency>
         <groupId>io.apicurio</groupId>
+        <artifactId>apicurio-registry-utils-exportConfluent</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.apicurio</groupId>
         <artifactId>apicurio-registry-protobuf-schema-utilities</artifactId>
         <version>${project.version}</version>
       </dependency>

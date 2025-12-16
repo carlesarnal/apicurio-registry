@@ -62,10 +62,10 @@ import java.util.zip.ZipOutputStream;
 public class Export implements QuarkusApplication {
 
     @Inject
-    Logger log;
+    public Logger log;
 
     @Inject
-    ArtifactReferenceMapper artifactReferenceMapper;
+    public ArtifactReferenceMapper artifactReferenceMapper;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
