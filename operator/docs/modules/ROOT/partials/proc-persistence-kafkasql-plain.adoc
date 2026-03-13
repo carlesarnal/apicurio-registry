@@ -70,8 +70,8 @@ status:
 +
 The default Kafka topic name automatically created by {registry} to store data is `kafkasql-journal`. You can override this behavior or the default topic name by setting environment variables. The default values are as follows:
 
- ** `REGISTRY_KAFKASQL_TOPIC_AUTO_CREATE=true`
- ** `REGISTRY_KAFKASQL_TOPIC=kafkasql-journal`
+ ** `APICURIO_KAFKASQL_TOPIC_AUTO_CREATE=true`
+ ** `APICURIO_KAFKASQL_TOPIC=kafkasql-journal`
 
 +
 If you decide not to create the Kafka topic manually, skip the next step.
