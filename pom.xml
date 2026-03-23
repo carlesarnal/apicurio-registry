@@ -1310,6 +1310,12 @@
       </modules>
     </profile>
     <profile>
+      <id>support-chat</id>
+      <modules>
+        <module>support-chat</module>
+      </modules>
+    </profile>
+    <profile>
       <id>productization</id>
       <modules>
         <module>prod-verifier</module>
