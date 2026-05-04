@@ -5,7 +5,7 @@ on:
     inputs:
       java-version:
         type: string
-        default: '17'
+        default: '21'
       node-version:
         type: string
         default: '20'
@@ -31,36 +31,12 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Cache Kiota binary
-        uses: actions/cache@v4
-        id: kiota-cache
-        with:
-          path: ~/.kiota
-          key: kiota-1.28.0-linux-x64
-
-      - name: Download Kiota binary
-        if: steps.kiota-cache.outputs.cache-hit != 'true'
-        uses: nick-fields/retry@v3
-        with:
-          timeout_minutes: 5
-          max_attempts: 3
-          retry_wait_seconds: 10
-          command: |
-            mkdir -p ~/.kiota
-            curl -L --retry 3 --retry-delay 5 \
-              -o ~/.kiota/kiota-linux-x64.zip \
-              https://github.com/microsoft/kiota/releases/download/v1.28.0/linux-x64.zip
-            unzip -o ~/.kiota/kiota-linux-x64.zip -d ~/.kiota/
-            chmod +x ~/.kiota/kiota
-
-      - name: Add Kiota to PATH
-        run: echo "$HOME/.kiota" >> $GITHUB_PATH
-
       - name: Build Application (skip tests for speed)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # For downloading Kiota binary.
         run: |
           ./mvnw clean package -T 0.5C --no-transfer-progress \
-            -Pprod -DskipTests=true -DskipCommitIdPlugin=false \
-            -Dkiota.system=true \
+            -Pprod -Dfull -DskipTests -DskipCommitIdPlugin=false -DcliSkipNative \
             -Dmaven.wagon.httpconnectionManager.maxTotal=30 \
             -Dmaven.wagon.http.retryHandler.count=5
 
@@ -95,11 +71,14 @@ jobs:
             app/target/
             distro/docker/target/
             mcp/target/docker/
-            java-sdk/target/
-            java-sdk-v2/target/
+            java-sdk/common/target/
+            java-sdk/adapter-vertx/target/
+            java-sdk/adapter-jdk/target/
+            java-sdk/client/target/
+            java-sdk/client-v2/target/
             config-index/definitions/target/
             common/target/
-            java-sdk-common/target/
+            schema-util/common/target/
           retention-days: 1
 
   build-ui:

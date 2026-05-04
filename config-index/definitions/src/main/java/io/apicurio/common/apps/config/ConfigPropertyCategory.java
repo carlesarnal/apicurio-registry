@@ -7,9 +7,11 @@ public enum ConfigPropertyCategory {
     CATEGORY_AUTH("auth"),
     CATEGORY_CACHE("cache"),
     CATEGORY_CCOMPAT("ccompat"),
+    CATEGORY_CONTRACTS("contracts"),
     CATEGORY_DOWNLOAD("download"),
     CATEGORY_GITOPS("gitops"),
     CATEGORY_HEALTH("health"), // TODO: Merge with CATEGORY_OBSERVABILITY.
+    CATEGORY_KUBERNETESOPS("kubernetesops"),
     /**
      * Properties that belong to this category will not show up in the documentation.
      */
@@ -18,6 +20,7 @@ public enum ConfigPropertyCategory {
     CATEGORY_IMPORT("import"),
     CATEGORY_LIMITS("limits"),
     CATEGORY_LOG("log"),
+    CATEGORY_MCP("mcp"),
     CATEGORY_OBSERVABILITY("observability"),
     CATEGORY_REDIRECTS("redirects"),
     CATEGORY_REST("rest"),
@@ -25,6 +28,7 @@ public enum ConfigPropertyCategory {
     CATEGORY_STORAGE("storage"),
     CATEGORY_SYSTEM("system"),
     CATEGORY_TYPES("types"),
+    CATEGORY_SEARCH("search"),
     CATEGORY_UI("ui");
 
     private final String value;

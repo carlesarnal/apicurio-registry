@@ -20,7 +20,7 @@ import {TextAreaEditorComponent} from "./inline-editor.base";
 import {OasSchema} from "@apicurio/data-models";
 import {ModelUtils} from "../../_util/model.util";
 import {SelectionService} from "../../_services/selection.service";
-import {StringUtils} from "apicurio-ts-core";
+import {StringUtils} from "../../_util/string.util";
 import {CodeEditorComponent, CodeEditorMode} from "./code-editor.component";
 
 @Component({
@@ -79,6 +79,11 @@ export class InlineExampleEditorComponent extends TextAreaEditorComponent implem
         } else {
             this._mode = CodeEditorMode.YAML;
         }
+    }
+
+    protected getValueForSave(): string {
+        // Preserve the raw editor text so example parsing can decide how to coerce it based on schema type.
+        return this.codeEditor.first.text;
     }
 
 }
