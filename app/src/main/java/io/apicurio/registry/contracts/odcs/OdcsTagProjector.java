@@ -2,7 +2,6 @@ package io.apicurio.registry.contracts.odcs;
 
 import io.apicurio.registry.cdi.Current;
 import io.apicurio.registry.storage.RegistryStorage;
-import io.apicurio.registry.storage.dto.EditableVersionMetaDataDto;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.slf4j.Logger;
@@ -38,18 +37,7 @@ public class OdcsTagProjector {
 
             String tagPrefix = FIELD_TAG_PREFIX + contractId + ":";
 
-            var meta = storage.getArtifactVersionMetaData(groupId, artifactId,
-                    targetVersion);
-
             var labels = new LinkedHashMap<String, String>();
-            if (meta.getLabels() != null) {
-                meta.getLabels().forEach((k, v) -> {
-                    if (!k.startsWith(tagPrefix)) {
-                        labels.put(k, v);
-                    }
-                });
-            }
-
             int count = 0;
             for (OdcsSchema schema : contract.getSchemas()) {
                 if (schema.getFields() == null) {
@@ -62,9 +50,8 @@ public class OdcsTagProjector {
             }
 
             if (count > 0) {
-                storage.updateArtifactVersionMetaData(groupId, artifactId,
-                        targetVersion,
-                        EditableVersionMetaDataDto.builder().labels(labels).build());
+                storage.mergeVersionLabels(groupId, artifactId, targetVersion,
+                        tagPrefix, labels);
             }
             return count;
         } catch (Exception e) {

@@ -3,7 +3,6 @@ package io.apicurio.registry.contracts.odcs;
 import io.apicurio.registry.cdi.Current;
 import io.apicurio.registry.contracts.ContractLabels;
 import io.apicurio.registry.storage.RegistryStorage;
-import io.apicurio.registry.storage.dto.EditableArtifactMetaDataDto;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -21,24 +20,11 @@ public class OdcsLabelProjector {
     public int project(OdcsContract contract, String contractId, String groupId,
             String artifactId) {
         String prefix = ContractLabels.PREFIX + contractId + ".";
-
-        var existing = storage.getArtifactMetaData(groupId, artifactId);
         var labels = new LinkedHashMap<String, String>();
-
-        if (existing.getLabels() != null) {
-            existing.getLabels().forEach((k, v) -> {
-                if (!k.startsWith(prefix)) {
-                    labels.put(k, v);
-                }
-            });
-        }
-
         collectLabels(contract, contractId, prefix, labels);
 
-        storage.updateArtifactMetaData(groupId, artifactId,
-                EditableArtifactMetaDataDto.builder().labels(labels).build());
-
-        return (int) labels.keySet().stream().filter(k -> k.startsWith(prefix)).count();
+        storage.mergeArtifactLabels(groupId, artifactId, prefix, labels);
+        return labels.size();
     }
 
     private void collectLabels(OdcsContract contract, String contractId, String prefix,

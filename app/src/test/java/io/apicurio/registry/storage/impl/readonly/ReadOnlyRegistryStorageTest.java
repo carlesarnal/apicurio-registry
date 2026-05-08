@@ -237,7 +237,11 @@ public class ReadOnlyRegistryStorageTest {
                 entry("upgradeData3", new State(true, s -> s.upgradeData(null, false, false))),
                 entry("createEvent1", new State(true, s -> s.createEvent(null))),
                 entry("supportsDatabaseEvents0", new State(true, s -> s.createEvent(null))),
-                entry("getContentByReference1", new State(true, s -> s.getContentByReference(null))));
+                entry("getContentByReference1", new State(true, s -> s.getContentByReference(null))),
+                entry("mergeArtifactLabels4",
+                        new State(true, s -> s.mergeArtifactLabels(null, null, null, null))),
+                entry("mergeVersionLabels5",
+                        new State(true, s -> s.mergeVersionLabels(null, null, null, null, null))));
 
         CURRENT_METHODS = Arrays.stream(RegistryStorage.class.getMethods())
                 .map(m -> m.getName() + m.getParameterCount()).collect(Collectors.toSet());

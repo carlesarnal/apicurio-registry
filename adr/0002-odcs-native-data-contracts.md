@@ -72,6 +72,19 @@ All endpoints are defined in the OpenAPI spec and generated into the `GroupsReso
 | PUT | `/groups/{g}/contracts/{id}` | Update contract, re-project |
 | DELETE | `/groups/{g}/contracts/{id}` | Delete contract |
 | GET | `/groups/{g}/artifacts/{a}/contract/export` | Export artifact state as ODCS YAML |
+| POST | `/groups/{g}/artifacts/{a}/contract/promote` | Promote contract stage (DEV→STAGE→PROD) |
+| GET | `/groups/{g}/artifacts/{a}/contract/quality?contractId=` | Get quality score |
+| POST | `/groups/{g}/artifacts/{a}/versions/{v}/contract/execute` | Execute contract rules against a data record |
+
+### Governance (Phase 4)
+
+`GovernanceRuleExecutor` checks contract metadata completeness using namespaced labels. Three levels: NONE, BASIC (owner required, deprecated blocked), FULL (+ classification, contact, PROD/STABLE). `PromotionService` validates DEV→STAGE→PROD transitions with per-artifact locking. `QualityScoreCalculator` computes weighted scores (completeness 30%, compliance 40%, stability 30%).
+
+### Runtime rule execution (Phase 5)
+
+The `contracts-rules` Maven module (`apicurio-registry-contracts-rules`) provides a storage-free rule execution engine reusable by both `app` and SerDes modules. Uses real CEL via `org.projectnessie.cel:cel-standalone:0.6.0` with AST caching and dynamic variable declaration. The `RuleExecutionEngine` filters rules by mode, sorts by order, executes CONDITION rules (ERROR stops, DLQ continues), and chains TRANSFORM outputs.
+
+`RuleExecutionService` in `app` loads rules from storage, maps `ContractRuleDto` → `RuleDefinition` (string-based types to avoid enum duplication), and delegates to the engine.
 
 ### Concurrency control
 

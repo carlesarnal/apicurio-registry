@@ -291,6 +291,18 @@ public interface SqlStatements {
     public String deleteArtifactLabels();
 
     /**
+     * A statement to delete artifact labels matching a key prefix.
+     */
+    public String selectArtifactLabels();
+
+    public String deleteArtifactLabelsByPrefix();
+
+    /**
+     * A statement to delete version labels matching a key prefix.
+     */
+    public String deleteVersionLabelsByPrefix();
+
+    /**
      * A statement to delete the labels for a single artifact version.
      */
     public String deleteVersionLabelsByGAV();

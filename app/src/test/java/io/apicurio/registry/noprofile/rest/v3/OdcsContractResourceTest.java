@@ -151,4 +151,76 @@ public class OdcsContractResourceTest extends AbstractResourceTestBase {
                 .then()
                 .statusCode(200);
     }
+
+    @Test
+    public void testGetContractQuality() throws Exception {
+        String artifactId = "testQuality-" + UUID.randomUUID();
+        createArtifact(GROUP, artifactId, ArtifactType.AVRO, AVRO_SCHEMA,
+                ContentTypes.APPLICATION_JSON);
+
+        String contract = odcsContract(GROUP, artifactId);
+        given()
+                .when()
+                .header("Content-Type", "application/x-yaml")
+                .pathParam("groupId", GROUP)
+                .body(contract.getBytes())
+                .post("/registry/v3/groups/{groupId}/contracts")
+                .then()
+                .statusCode(200);
+
+        given()
+                .when()
+                .pathParam("groupId", GROUP)
+                .pathParam("artifactId", artifactId)
+                .queryParam("contractId", "test-contract-quality")
+                .get("/registry/v3/groups/{groupId}/artifacts/{artifactId}/contract/quality")
+                .then()
+                .statusCode(200)
+                .body("overall", notNullValue());
+    }
+
+    @Test
+    public void testPromoteContract() throws Exception {
+        String artifactId = "testPromote-" + UUID.randomUUID();
+        createArtifact(GROUP, artifactId, ArtifactType.AVRO, AVRO_SCHEMA,
+                ContentTypes.APPLICATION_JSON);
+
+        String contract = odcsContract(GROUP, artifactId);
+        given()
+                .when()
+                .header("Content-Type", "application/x-yaml")
+                .pathParam("groupId", GROUP)
+                .body(contract.getBytes())
+                .post("/registry/v3/groups/{groupId}/contracts")
+                .then()
+                .statusCode(200);
+
+        given()
+                .when()
+                .contentType(CT_JSON)
+                .pathParam("groupId", GROUP)
+                .pathParam("artifactId", artifactId)
+                .body("{\"contractId\":\"test-promote\",\"targetStage\":\"DEV\"}")
+                .post("/registry/v3/groups/{groupId}/artifacts/{artifactId}/contract/promote")
+                .then()
+                .statusCode(200)
+                .body("stage", equalTo("DEV"));
+    }
+
+    @Test
+    public void testPromoteInvalidStage() throws Exception {
+        String artifactId = "testPromoteInvalid-" + UUID.randomUUID();
+        createArtifact(GROUP, artifactId, ArtifactType.AVRO, AVRO_SCHEMA,
+                ContentTypes.APPLICATION_JSON);
+
+        given()
+                .when()
+                .contentType(CT_JSON)
+                .pathParam("groupId", GROUP)
+                .pathParam("artifactId", artifactId)
+                .body("{\"contractId\":\"test\",\"targetStage\":\"INVALID\"}")
+                .post("/registry/v3/groups/{groupId}/artifacts/{artifactId}/contract/promote")
+                .then()
+                .statusCode(400);
+    }
 }

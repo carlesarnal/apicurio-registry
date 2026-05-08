@@ -5,6 +5,7 @@ import io.apicurio.registry.auth.AuthorizedLevel;
 import io.apicurio.registry.auth.AuthorizedStyle;
 import io.apicurio.registry.content.ContentHandle;
 import io.apicurio.registry.contracts.ContractLabels;
+import io.apicurio.registry.storage.dto.PromotionStage;
 import io.apicurio.registry.contracts.odcs.OdcsContract;
 import io.apicurio.registry.contracts.odcs.OdcsParser;
 import io.apicurio.registry.contracts.odcs.OdcsExporter;
@@ -69,12 +70,17 @@ import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.math.BigInteger;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -104,6 +110,7 @@ import static java.util.stream.Collectors.toList;
 // TODO: Split this into multiple implementation classes, similar to the storage repositories.
 public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsResource {
 
+    private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
     private static final String EMPTY_CONTENT_ERROR_MESSAGE = "Empty content is not allowed.";
     @SuppressWarnings("unused")
     private static final Integer GET_GROUPS_LIMIT = 1000;
@@ -149,6 +156,15 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
 
     @Inject
     OdcsExporter odcsExporter;
+
+    @Inject
+    io.apicurio.registry.contracts.promotion.PromotionService promotionService;
+
+    @Inject
+    io.apicurio.registry.contracts.quality.QualityScoreCalculator qualityScoreCalculator;
+
+    @Inject
+    io.apicurio.registry.contracts.rules.RuleExecutionService ruleExecutionService;
 
     /**
      * @see io.apicurio.registry.rest.v3.GroupsResource#getArtifactVersionReferences(java.lang.String,
@@ -2466,5 +2482,107 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
             }
         }
         return null;
+    }
+
+    // ========== Phase 4-5 Endpoints ==========
+
+    @Override
+    @Audited
+    @Authorized(style = AuthorizedStyle.GroupAndArtifact, level = AuthorizedLevel.Write)
+    public Response promoteContract(String groupId, String artifactId,
+            InputStream data) {
+        checkContractsEnabled();
+        ParameterValidationUtils.requireParameter("groupId", groupId);
+        ParameterValidationUtils.requireParameter("artifactId", artifactId);
+
+        JsonNode json;
+        try {
+            json = JSON_MAPPER.readTree(data);
+        } catch (Exception e) {
+            throw new BadRequestException("Invalid JSON: " + e.getMessage());
+        }
+        if (json == null || !json.has("contractId") || !json.has("targetStage")) {
+            throw new BadRequestException(
+                    "Request must include contractId and targetStage");
+        }
+
+        String contractId = json.get("contractId").asText();
+        String targetStageStr = json.get("targetStage").asText();
+        PromotionStage targetStage;
+        try {
+            targetStage = PromotionStage.valueOf(targetStageStr);
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException(
+                    "Invalid targetStage: " + targetStageStr
+                            + ". Must be DEV, STAGE, or PROD.");
+        }
+
+        String rawGroupId = new GroupId(groupId).getRawGroupIdWithNull();
+        var result = promotionService.promote(rawGroupId, artifactId,
+                contractId, targetStage);
+        return Response.ok(Map.of("stage", result.name())).build();
+    }
+
+    @Override
+    @Authorized(style = AuthorizedStyle.GroupAndArtifact, level = AuthorizedLevel.Read)
+    public Response getContractQuality(String groupId, String artifactId,
+            String contractId) {
+        checkContractsEnabled();
+        ParameterValidationUtils.requireParameter("groupId", groupId);
+        ParameterValidationUtils.requireParameter("artifactId", artifactId);
+        ParameterValidationUtils.requireParameter("contractId", contractId);
+
+        String rawGroupId = new GroupId(groupId).getRawGroupIdWithNull();
+        var score = qualityScoreCalculator.calculate(rawGroupId, artifactId,
+                contractId);
+        return Response.ok(Map.of(
+                "overall", score.getOverall(),
+                "completeness", score.getCompleteness(),
+                "compliance", score.getCompliance(),
+                "stability", score.getStability())).build();
+    }
+
+    @Override
+    @Authorized(style = AuthorizedStyle.GroupAndArtifact, level = AuthorizedLevel.Read)
+    @SuppressWarnings("unchecked")
+    public Response executeContractRules(String groupId, String artifactId,
+            String versionExpression, InputStream data) {
+        checkContractsEnabled();
+        ParameterValidationUtils.requireParameter("groupId", groupId);
+        ParameterValidationUtils.requireParameter("artifactId", artifactId);
+
+        JsonNode json;
+        try {
+            json = JSON_MAPPER.readTree(data);
+        } catch (Exception e) {
+            throw new BadRequestException("Invalid JSON: " + e.getMessage());
+        }
+        if (json == null || !json.has("mode") || !json.has("record")) {
+            throw new BadRequestException(
+                    "Request must include mode and record");
+        }
+
+        String mode = json.get("mode").asText();
+        Map<String, Object> record = JSON_MAPPER.convertValue(
+                json.get("record"), Map.class);
+
+        String rawGroupId = new GroupId(groupId).getRawGroupIdWithNull();
+        var gav = VersionExpressionParser.parse(
+                new GA(rawGroupId, artifactId), versionExpression,
+                (ga, branchId) -> storage.getBranchTip(ga, branchId,
+                        RetrievalBehavior.ALL_STATES));
+
+        var result = ruleExecutionService.execute(rawGroupId, artifactId,
+                gav.getRawVersionId(), mode, record);
+
+        var responseMap = new LinkedHashMap<String, Object>();
+        responseMap.put("passed", result.isPassed());
+        if (result.getTransformedRecord() != null) {
+            responseMap.put("transformedRecord", result.getTransformedRecord());
+        }
+        responseMap.put("violations", result.getViolations());
+        responseMap.put("executedRules", result.getExecutedRules());
+        responseMap.put("failedRules", result.getFailedRules());
+        return Response.ok(responseMap).build();
     }
 }

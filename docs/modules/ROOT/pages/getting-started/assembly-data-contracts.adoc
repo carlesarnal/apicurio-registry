@@ -398,21 +398,35 @@ Version-level rulesets are also available at `.../versions/{version}/contract/ru
 |Change lifecycle status with transition validation
 |===
 
-=== Planned endpoints
+=== Governance and quality endpoints
 
-.Planned REST API endpoints
+.Governance REST API endpoints
 [cols="1,4,3", options="header"]
 |===
 |Method |Endpoint |Description
 
 |POST
 |`/groups/{groupId}/artifacts/{artifactId}/contract/promote`
-|Promote to next stage (DEV -> STAGE -> PROD)
+|Promote contract stage (DEV -> STAGE -> PROD). Body: `{"contractId": "...", "targetStage": "STAGE"}`
 
 |GET
-|`/groups/{groupId}/artifacts/{artifactId}/contract/quality`
-|Get quality score
+|`/groups/{groupId}/artifacts/{artifactId}/contract/quality?contractId=`
+|Get quality score (overall, completeness, compliance, stability)
 |===
+
+=== Rule execution endpoint
+
+.Rule execution REST API endpoint
+[cols="1,4,3", options="header"]
+|===
+|Method |Endpoint |Description
+
+|POST
+|`/groups/{groupId}/artifacts/{artifactId}/versions/{version}/contract/execute`
+|Execute contract rules against a data record. Body: `{"mode": "WRITE", "record": {...}}`
+|===
+
+Uses real CEL (Common Expression Language) via the `cel-standalone` library. Full CEL spec support including parenthesized grouping, ternary expressions, string functions, `has()`, `size()`.
 
 === Example: Submitting an ODCS contract
 
@@ -454,6 +468,45 @@ curl http://localhost:8080/apis/registry/v3/groups/my-group/artifacts/my-artifac
 ----
 
 Returns the reconstructed ODCS v3.1 YAML from the artifact's current contract labels, rules, and field tags.
+
+=== Example: Promoting a contract
+
+[source,bash]
+----
+curl -X POST \
+  http://localhost:8080/apis/registry/v3/groups/my-group/artifacts/my-artifact/contract/promote \
+  -H 'Content-Type: application/json' \
+  -d '{"contractId": "orders-contract", "targetStage": "STAGE"}'
+----
+
+=== Example: Getting quality score
+
+[source,bash]
+----
+curl "http://localhost:8080/apis/registry/v3/groups/my-group/artifacts/my-artifact/contract/quality?contractId=orders-contract"
+----
+
+.Response
+[source,json]
+----
+{"overall": 0.85, "completeness": 0.83, "compliance": 1.0, "stability": 0.67}
+----
+
+=== Example: Executing contract rules
+
+[source,bash]
+----
+curl -X POST \
+  http://localhost:8080/apis/registry/v3/groups/my-group/artifacts/my-artifact/versions/1/contract/execute \
+  -H 'Content-Type: application/json' \
+  -d '{"mode": "WRITE", "record": {"message": {"totalAmount": 100, "status": "active"}}}'
+----
+
+.Response
+[source,json]
+----
+{"passed": true, "violations": [], "executedRules": 2, "failedRules": 0}
+----
 
 === Example: Setting contract metadata directly
 
