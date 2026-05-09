@@ -131,13 +131,13 @@ public class CCompatExceptionMapperService {
             if (artifactId != null) {
                 return "Subject '" + artifactId + "' not found.";
             }
-            return "Subject not found";
+            return "Subject not found.";
         }
         if (t instanceof ContentNotFoundException cnfe) {
             if (cnfe.getContentId() != null) {
-                return "Schema " + cnfe.getContentId() + " not found";
+                return "Schema " + cnfe.getContentId() + " not found.";
             }
-            return "Schema not found";
+            return "Schema not found.";
         }
         if (t instanceof RuleNotFoundException) {
             return "Subject does not have subject-level compatibility configured";
