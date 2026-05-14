@@ -139,8 +139,7 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
     @Inject
     ProtobufExporter protobufExporter;
 
-    @Inject
-    io.apicurio.registry.contracts.DataContractsConfig dataContractsConfig;
+
 
     @Inject
     io.apicurio.registry.contracts.ContractMetadataMapper contractMetadataMapper;
@@ -1905,17 +1904,12 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
                 gav.getRawGroupIdWithNull(), gav.getRawArtifactId(), gav.getRawVersionId());
     }
 
-    private void checkContractsEnabled() {
-        if (!dataContractsConfig.isEnabled()) {
-            throw new NotAllowedException("Data contracts feature is not enabled.", HttpMethod.GET,
-                    (String[]) null);
-        }
-    }
+
 
     @Override
     @Authorized(style = AuthorizedStyle.GroupAndArtifact, level = AuthorizedLevel.Read)
     public ContractMetadata getContractMetadata(String groupId, String artifactId) {
-        checkContractsEnabled();
+
         ParameterValidationUtils.requireParameter("groupId", groupId);
         ParameterValidationUtils.requireParameter("artifactId", artifactId);
 
@@ -1930,7 +1924,7 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
     @Authorized(style = AuthorizedStyle.GroupAndArtifact, level = AuthorizedLevel.Write)
     public ContractMetadata updateContractMetadata(String groupId, String artifactId,
             EditableContractMetadata data) {
-        checkContractsEnabled();
+
         ParameterValidationUtils.requireParameter("groupId", groupId);
         ParameterValidationUtils.requireParameter("artifactId", artifactId);
 
@@ -1971,7 +1965,7 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
     @Override
     @Authorized(style = AuthorizedStyle.GroupAndArtifact, level = AuthorizedLevel.Read)
     public ContractRuleSet getArtifactContractRuleset(String groupId, String artifactId) {
-        checkContractsEnabled();
+
         ParameterValidationUtils.requireParameter("groupId", groupId);
         ParameterValidationUtils.requireParameter("artifactId", artifactId);
 
@@ -1985,7 +1979,7 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
     @Authorized(style = AuthorizedStyle.GroupAndArtifact, level = AuthorizedLevel.Write)
     public ContractRuleSet setArtifactContractRuleset(String groupId, String artifactId,
             ContractRuleSet data) {
-        checkContractsEnabled();
+
         ParameterValidationUtils.requireParameter("groupId", groupId);
         ParameterValidationUtils.requireParameter("artifactId", artifactId);
 
@@ -1999,7 +1993,7 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
     @Audited
     @Authorized(style = AuthorizedStyle.GroupAndArtifact, level = AuthorizedLevel.Write)
     public void deleteArtifactContractRuleset(String groupId, String artifactId) {
-        checkContractsEnabled();
+
         ParameterValidationUtils.requireParameter("groupId", groupId);
         ParameterValidationUtils.requireParameter("artifactId", artifactId);
 
@@ -2011,7 +2005,7 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
     @Authorized(style = AuthorizedStyle.GroupAndArtifact, level = AuthorizedLevel.Read)
     public ContractRuleSet getVersionContractRuleset(String groupId, String artifactId,
             String versionExpression) {
-        checkContractsEnabled();
+
         ParameterValidationUtils.requireParameter("groupId", groupId);
         ParameterValidationUtils.requireParameter("artifactId", artifactId);
         ParameterValidationUtils.requireParameter("versionExpression", versionExpression);
@@ -2029,7 +2023,7 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
     @Authorized(style = AuthorizedStyle.GroupAndArtifact, level = AuthorizedLevel.Write)
     public ContractRuleSet setVersionContractRuleset(String groupId, String artifactId,
             String versionExpression, ContractRuleSet data) {
-        checkContractsEnabled();
+
         ParameterValidationUtils.requireParameter("groupId", groupId);
         ParameterValidationUtils.requireParameter("artifactId", artifactId);
         ParameterValidationUtils.requireParameter("versionExpression", versionExpression);
@@ -2048,7 +2042,7 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
     @Authorized(style = AuthorizedStyle.GroupAndArtifact, level = AuthorizedLevel.Write)
     public void deleteVersionContractRuleset(String groupId, String artifactId,
             String versionExpression) {
-        checkContractsEnabled();
+
         ParameterValidationUtils.requireParameter("groupId", groupId);
         ParameterValidationUtils.requireParameter("artifactId", artifactId);
         ParameterValidationUtils.requireParameter("versionExpression", versionExpression);
@@ -2065,7 +2059,7 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
     @Authorized(style = AuthorizedStyle.GroupAndArtifact, level = AuthorizedLevel.Write)
     public ContractMetadata transitionContractStatus(String groupId, String artifactId,
             ContractStatusTransition data) {
-        checkContractsEnabled();
+
         ParameterValidationUtils.requireParameter("groupId", groupId);
         ParameterValidationUtils.requireParameter("artifactId", artifactId);
 
@@ -2213,7 +2207,7 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
     @Audited
     @Authorized(style = AuthorizedStyle.GroupOnly, level = AuthorizedLevel.Write)
     public OdcsContractResult submitContract(String groupId, String data) {
-        checkContractsEnabled();
+
         ParameterValidationUtils.requireParameter("groupId", groupId);
         ParameterValidationUtils.requireParameter("data", data);
 
@@ -2273,7 +2267,7 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
     @Authorized(style = AuthorizedStyle.GroupOnly, level = AuthorizedLevel.Read)
     public List<OdcsContractSummary> listContracts(String groupId, Integer limit,
             Integer offset) {
-        checkContractsEnabled();
+
         ParameterValidationUtils.requireParameter("groupId", groupId);
 
         int effectiveLimit = limit != null ? Math.min(limit, 500) : 20;
@@ -2301,7 +2295,7 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
     @Override
     @Authorized(style = AuthorizedStyle.GroupAndArtifact, level = AuthorizedLevel.Read)
     public String getContract(String groupId, String contractId) {
-        checkContractsEnabled();
+
         ParameterValidationUtils.requireParameter("groupId", groupId);
         ParameterValidationUtils.requireParameter("contractId", contractId);
 
@@ -2314,7 +2308,7 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
     @Audited
     @Authorized(style = AuthorizedStyle.GroupAndArtifact, level = AuthorizedLevel.Write)
     public OdcsContractResult updateContract(String groupId, String contractId, String data) {
-        checkContractsEnabled();
+
         ParameterValidationUtils.requireParameter("groupId", groupId);
         ParameterValidationUtils.requireParameter("contractId", contractId);
         ParameterValidationUtils.requireParameter("data", data);
@@ -2345,7 +2339,7 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
     @Audited
     @Authorized(style = AuthorizedStyle.GroupAndArtifact, level = AuthorizedLevel.Write)
     public void deleteContract(String groupId, String contractId) {
-        checkContractsEnabled();
+
         ParameterValidationUtils.requireParameter("groupId", groupId);
         ParameterValidationUtils.requireParameter("contractId", contractId);
 
@@ -2441,7 +2435,7 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
     @Override
     @Authorized(style = AuthorizedStyle.GroupAndArtifact, level = AuthorizedLevel.Read)
     public String exportContractAsOdcs(String groupId, String artifactId) {
-        checkContractsEnabled();
+
         ParameterValidationUtils.requireParameter("groupId", groupId);
         ParameterValidationUtils.requireParameter("artifactId", artifactId);
 
@@ -2480,7 +2474,7 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
     @Authorized(style = AuthorizedStyle.GroupAndArtifact, level = AuthorizedLevel.Write)
     public Response promoteContract(String groupId, String artifactId,
             InputStream data) {
-        checkContractsEnabled();
+
         ParameterValidationUtils.requireParameter("groupId", groupId);
         ParameterValidationUtils.requireParameter("artifactId", artifactId);
 
@@ -2516,7 +2510,7 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
     @Authorized(style = AuthorizedStyle.GroupAndArtifact, level = AuthorizedLevel.Read)
     public Response getContractQuality(String groupId, String artifactId,
             String contractId) {
-        checkContractsEnabled();
+
         ParameterValidationUtils.requireParameter("groupId", groupId);
         ParameterValidationUtils.requireParameter("artifactId", artifactId);
         ParameterValidationUtils.requireParameter("contractId", contractId);
@@ -2536,7 +2530,7 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
     @SuppressWarnings("unchecked")
     public Response executeContractRules(String groupId, String artifactId,
             String versionExpression, InputStream data) {
-        checkContractsEnabled();
+
         ParameterValidationUtils.requireParameter("groupId", groupId);
         ParameterValidationUtils.requireParameter("artifactId", artifactId);
 
