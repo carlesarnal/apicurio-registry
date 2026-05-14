@@ -1949,28 +1949,22 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
                         ? PromotionStage.valueOf(data.getStage().value()) : null)
                 .build();
 
-        // Convert to labels and merge with existing artifact labels
-        Map<String, String> contractLabels = contractMetadataMapper.toLabels(editableDto);
-
+        // Detect existing contractId from labels
         ArtifactMetaDataDto existing = storage.getArtifactMetaData(rawGroupId, artifactId);
-        Map<String, String> mergedLabels = new java.util.HashMap<>(
-                existing.getLabels() != null ? existing.getLabels() : Collections.emptyMap());
+        String contractId = findContractId(existing.getLabels());
+        String prefix = contractId != null
+                ? ContractLabels.contractPrefix(contractId) : ContractLabels.PREFIX;
 
-        // Remove existing contract labels first
-        mergedLabels.entrySet().removeIf(
-                e -> e.getKey().startsWith(io.apicurio.registry.contracts.ContractLabels.PREFIX));
-        // Add new contract labels
-        mergedLabels.putAll(contractLabels);
+        // Convert editable metadata to namespaced labels
+        Map<String, String> contractLabels = contractMetadataMapper.toLabels(editableDto, prefix);
 
-        EditableArtifactMetaDataDto metaDto = new EditableArtifactMetaDataDto();
-        metaDto.setName(existing.getName());
-        metaDto.setDescription(existing.getDescription());
-        metaDto.setOwner(existing.getOwner());
-        metaDto.setLabels(mergedLabels);
-        storage.updateArtifactMetaData(rawGroupId, artifactId, metaDto);
+        // Atomic merge scoped to the contract prefix
+        storage.mergeArtifactLabels(rawGroupId, artifactId, prefix, contractLabels);
 
         // Return the updated contract metadata
-        ContractMetadataDto result = contractMetadataMapper.fromLabels(mergedLabels);
+        ArtifactMetaDataDto updated = storage.getArtifactMetaData(rawGroupId, artifactId);
+        ContractMetadataDto result = contractMetadataMapper.fromLabels(
+                updated.getLabels(), contractId);
         return toContractMetadataBean(result);
     }
 
@@ -2080,44 +2074,39 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
 
         // Get current metadata to check current status
         ArtifactMetaDataDto existing = storage.getArtifactMetaData(rawGroupId, artifactId);
-        ContractMetadataDto currentMetadata = contractMetadataMapper.fromLabels(existing.getLabels());
+        String contractId = findContractId(existing.getLabels());
+        ContractMetadataDto currentMetadata = contractMetadataMapper.fromLabels(
+                existing.getLabels(), contractId);
 
         // Validate transition
         contractMetadataValidator.validateStatusTransition(currentMetadata.getStatus(), targetStatus);
 
-        // Build updated labels
-        Map<String, String> mergedLabels = new java.util.HashMap<>(
-                existing.getLabels() != null ? existing.getLabels() : Collections.emptyMap());
+        String prefix = contractId != null
+                ? ContractLabels.contractPrefix(contractId) : ContractLabels.PREFIX;
 
-        // Update the status label
-        mergedLabels.put(io.apicurio.registry.contracts.ContractLabels.PREFIX + "status",
-                targetStatus.name());
+        // Use atomic merge for the status and lifecycle labels
+        Map<String, String> statusLabels = new java.util.HashMap<>();
+        statusLabels.put(prefix + ContractLabels.SUFFIX_STATUS, targetStatus.name());
 
-        // If transitioning to STABLE, set the stableDate if not already set
-        if (targetStatus == ContractStatus.STABLE
-                && !mergedLabels.containsKey(
-                        io.apicurio.registry.contracts.ContractLabels.PREFIX + "stableDate")) {
-            mergedLabels.put(io.apicurio.registry.contracts.ContractLabels.PREFIX + "stableDate",
+        if (targetStatus == ContractStatus.STABLE) {
+            statusLabels.putIfAbsent(prefix + ContractLabels.SUFFIX_STABLE_DATE,
+                    java.time.LocalDate.now().toString());
+        }
+        if (targetStatus == ContractStatus.DEPRECATED) {
+            statusLabels.putIfAbsent(prefix + ContractLabels.SUFFIX_DEPRECATED_DATE,
                     java.time.LocalDate.now().toString());
         }
 
-        // If transitioning to DEPRECATED, set the deprecatedDate if not already set
-        if (targetStatus == ContractStatus.DEPRECATED
-                && !mergedLabels.containsKey(
-                        io.apicurio.registry.contracts.ContractLabels.PREFIX + "deprecatedDate")) {
-            mergedLabels.put(
-                    io.apicurio.registry.contracts.ContractLabels.PREFIX + "deprecatedDate",
-                    java.time.LocalDate.now().toString());
+        storage.mergeArtifactLabels(rawGroupId, artifactId,
+                prefix + ContractLabels.SUFFIX_STATUS, statusLabels);
+        if (statusLabels.size() > 1) {
+            storage.mergeArtifactLabels(rawGroupId, artifactId,
+                    prefix + "lifecycle.", statusLabels);
         }
 
-        EditableArtifactMetaDataDto metaDto = new EditableArtifactMetaDataDto();
-        metaDto.setName(existing.getName());
-        metaDto.setDescription(existing.getDescription());
-        metaDto.setOwner(existing.getOwner());
-        metaDto.setLabels(mergedLabels);
-        storage.updateArtifactMetaData(rawGroupId, artifactId, metaDto);
-
-        ContractMetadataDto result = contractMetadataMapper.fromLabels(mergedLabels);
+        ArtifactMetaDataDto updated = storage.getArtifactMetaData(rawGroupId, artifactId);
+        ContractMetadataDto result = contractMetadataMapper.fromLabels(
+                updated.getLabels(), contractId);
         return toContractMetadataBean(result);
     }
 
@@ -2470,7 +2459,7 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
         if (labels == null) {
             return null;
         }
-        String suffix = ".id";
+        String suffix = "." + ContractLabels.SUFFIX_ID;
         for (Map.Entry<String, String> entry : labels.entrySet()) {
             String key = entry.getKey();
             if (key.startsWith(ContractLabels.PREFIX) && key.endsWith(suffix)) {

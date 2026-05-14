@@ -26,7 +26,7 @@ public class QualityScoreCalculator {
             String contractId) {
         ArtifactMetaDataDto meta = storage.getArtifactMetaData(groupId, artifactId);
         Map<String, String> labels = meta.getLabels() != null ? meta.getLabels() : Map.of();
-        String prefix = ContractLabels.PREFIX + contractId + ".";
+        String prefix = ContractLabels.contractPrefix(contractId);
 
         float completeness = calculateCompleteness(meta, labels, prefix);
         float compliance = calculateCompliance(groupId, artifactId, labels, prefix);
@@ -54,23 +54,23 @@ public class QualityScoreCalculator {
             present++;
         }
         total++;
-        if (labels.containsKey(prefix + "owner.team")) {
+        if (labels.containsKey(prefix + ContractLabels.SUFFIX_OWNER_TEAM)) {
             present++;
         }
         total++;
-        if (labels.containsKey(prefix + "support.contact")) {
+        if (labels.containsKey(prefix + ContractLabels.SUFFIX_SUPPORT_CONTACT)) {
             present++;
         }
         total++;
-        if (labels.containsKey(prefix + "classification")) {
+        if (labels.containsKey(prefix + ContractLabels.SUFFIX_CLASSIFICATION)) {
             present++;
         }
         total++;
-        if (labels.containsKey(prefix + "sla.availability")) {
+        if (labels.containsKey(prefix + ContractLabels.SUFFIX_SLA_AVAILABILITY)) {
             present++;
         }
         total++;
-        if (labels.containsKey(prefix + "owner.domain")) {
+        if (labels.containsKey(prefix + ContractLabels.SUFFIX_OWNER_DOMAIN)) {
             present++;
         }
         return total > 0 ? (float) present / total : 0f;
@@ -89,7 +89,7 @@ public class QualityScoreCalculator {
             present++;
         }
         total++;
-        if (labels.containsKey(prefix + "status")) {
+        if (labels.containsKey(prefix + ContractLabels.SUFFIX_STATUS)) {
             present++;
         }
         return total > 0 ? (float) present / total : 0f;
@@ -101,7 +101,7 @@ public class QualityScoreCalculator {
         int present = 0;
 
         total++;
-        if ("STABLE".equals(labels.get(prefix + "status"))) {
+        if ("STABLE".equals(labels.get(prefix + ContractLabels.SUFFIX_STATUS))) {
             present++;
         }
         total++;
@@ -114,7 +114,7 @@ public class QualityScoreCalculator {
             // artifact doesn't exist yet — no version history
         }
         total++;
-        if (labels.containsKey(prefix + "id")) {
+        if (labels.containsKey(prefix + ContractLabels.SUFFIX_ID)) {
             present++;
         }
         return total > 0 ? (float) present / total : 0f;

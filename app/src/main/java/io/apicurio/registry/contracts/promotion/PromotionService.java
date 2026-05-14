@@ -20,19 +20,19 @@ public class PromotionService {
 
     public PromotionStage promote(String groupId, String artifactId,
             String contractId, PromotionStage targetStage) {
-        String prefix = ContractLabels.PREFIX + contractId + ".";
+        String prefix = ContractLabels.contractPrefix(contractId);
 
         ArtifactMetaDataDto meta = storage.getArtifactMetaData(groupId, artifactId);
         Map<String, String> labels = meta.getLabels() != null ? meta.getLabels() : Map.of();
 
-        String currentStageStr = labels.get(prefix + "stage");
+        String currentStageStr = labels.get(prefix + ContractLabels.SUFFIX_STAGE);
         PromotionStage currentStage = currentStageStr != null
                 ? PromotionStage.valueOf(currentStageStr) : null;
 
         validateTransition(currentStage, targetStage, labels, prefix);
 
-        storage.mergeArtifactLabels(groupId, artifactId, prefix + "stage",
-                Map.of(prefix + "stage", targetStage.name()));
+        storage.mergeArtifactLabels(groupId, artifactId, prefix + ContractLabels.SUFFIX_STAGE,
+                Map.of(prefix + ContractLabels.SUFFIX_STAGE, targetStage.name()));
 
         return targetStage;
     }
@@ -51,7 +51,7 @@ public class PromotionService {
                             + " first.");
         }
         if (target == PromotionStage.PROD) {
-            String status = labels.get(prefix + "status");
+            String status = labels.get(prefix + ContractLabels.SUFFIX_STATUS);
             if (!"STABLE".equals(status)) {
                 throw new BadRequestException(
                         "PROD promotion requires STABLE contract status. Current: "

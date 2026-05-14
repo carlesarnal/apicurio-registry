@@ -30,44 +30,44 @@ public class GovernanceRuleExecutor {
 
         ArtifactMetaDataDto meta = storage.getArtifactMetaData(groupId, artifactId);
         Map<String, String> labels = meta.getLabels() != null ? meta.getLabels() : Map.of();
-        String prefix = ContractLabels.PREFIX + contractId + ".";
+        String prefix = ContractLabels.contractPrefix(contractId);
 
         Set<RuleViolation> violations = new HashSet<>();
 
-        String status = labels.get(prefix + "status");
+        String status = labels.get(prefix + ContractLabels.SUFFIX_STATUS);
         if ("DEPRECATED".equals(status)) {
             violations.add(new RuleViolation(
                     "Updates to deprecated contracts are not allowed",
-                    prefix + "status"));
+                    prefix + ContractLabels.SUFFIX_STATUS));
         }
 
-        String owner = labels.get(prefix + "owner.team");
+        String owner = labels.get(prefix + ContractLabels.SUFFIX_OWNER_TEAM);
         if (owner == null || owner.isBlank()) {
             violations.add(new RuleViolation(
                     "Contract owner team is required",
-                    prefix + "owner.team"));
+                    prefix + ContractLabels.SUFFIX_OWNER_TEAM));
         }
 
         if (level == GovernanceLevel.FULL) {
-            String classification = labels.get(prefix + "classification");
+            String classification = labels.get(prefix + ContractLabels.SUFFIX_CLASSIFICATION);
             if (classification == null || classification.isBlank()) {
                 violations.add(new RuleViolation(
                         "Data classification is required",
-                        prefix + "classification"));
+                        prefix + ContractLabels.SUFFIX_CLASSIFICATION));
             }
 
-            String contact = labels.get(prefix + "support.contact");
+            String contact = labels.get(prefix + ContractLabels.SUFFIX_SUPPORT_CONTACT);
             if (contact == null || contact.isBlank()) {
                 violations.add(new RuleViolation(
                         "Support contact is required",
-                        prefix + "support.contact"));
+                        prefix + ContractLabels.SUFFIX_SUPPORT_CONTACT));
             }
 
-            String stage = labels.get(prefix + "stage");
+            String stage = labels.get(prefix + ContractLabels.SUFFIX_STAGE);
             if ("PROD".equals(stage) && !"STABLE".equals(status)) {
                 violations.add(new RuleViolation(
                         "PROD promotion requires STABLE status",
-                        prefix + "stage"));
+                        prefix + ContractLabels.SUFFIX_STAGE));
             }
         }
 

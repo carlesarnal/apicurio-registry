@@ -56,10 +56,18 @@ public class RegistryDeploymentManager implements TestExecutionListener {
 
     @Override
     public void testPlanExecutionStarted(TestPlan testPlan) {
-        // Set quarkus.args for iceberg before Quarkus starts (must be a system property, read by the framework)
+        // Set quarkus.args before Quarkus starts (must be a system property, read by the framework)
+        List<String> quarkusArgs = new ArrayList<>();
         if (Constants.isGroupActive(Constants.ICEBERG)) {
-            System.setProperty("quarkus.args",
-                    "-Dapicurio.features.experimental.enabled=true -Dapicurio.iceberg.enabled=true");
+            quarkusArgs.add("-Dapicurio.features.experimental.enabled=true");
+            quarkusArgs.add("-Dapicurio.iceberg.enabled=true");
+        }
+        if (Constants.isGroupActive(Constants.CONTRACTS)) {
+            quarkusArgs.add("-Dapicurio.features.experimental.enabled=true");
+            quarkusArgs.add("-Dapicurio.contracts.enabled=true");
+        }
+        if (!quarkusArgs.isEmpty()) {
+            System.setProperty("quarkus.args", String.join(" ", quarkusArgs));
         }
 
         if (Boolean.parseBoolean(System.getProperty("cluster.tests"))) {
