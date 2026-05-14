@@ -1464,6 +1464,11 @@ public abstract class CommonSqlStatements implements SqlStatements {
     }
 
     @Override
+    public String deleteAllContractRules() {
+        return "DELETE FROM contract_rules";
+    }
+
+    @Override
     public String exportContractRules() {
         return "SELECT * FROM contract_rules r";
     }

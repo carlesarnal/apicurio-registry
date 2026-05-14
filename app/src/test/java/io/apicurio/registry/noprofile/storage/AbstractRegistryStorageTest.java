@@ -1087,7 +1087,7 @@ public abstract class AbstractRegistryStorageTest extends AbstractResourceTestBa
         // Delete first to cleanup after other tests
         storage().deleteAllUserData();
         createSomeUserData();
-        Assertions.assertTrue(countStorageEntities() > 0, "Expected some storage entities after creating user data");
+        Assertions.assertEquals(12, countStorageEntities());
         storage().deleteAllUserData();
         Assertions.assertEquals(0, countStorageEntities());
     }

@@ -811,6 +811,8 @@ public interface SqlStatements {
 
     String deleteContractRulesByGlobalId();
 
+    String deleteAllContractRules();
+
     String exportContractRules();
 
     String exportContractRulesByGroupId();
