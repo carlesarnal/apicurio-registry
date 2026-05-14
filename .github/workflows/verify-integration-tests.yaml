@@ -30,15 +30,18 @@ jobs:
           - { storage: h2, groups: migration, remote-profile: remote-mem }
           - { storage: h2, name: debezium, groups: 'debezium,debezium-snapshot,debezium-mysql,debezium-mysql-snapshot', remote-profile: remote-mem }
           - { storage: h2, groups: iceberg, remote-profile: remote-mem }
+          - { storage: h2, groups: contracts, remote-profile: remote-mem }
           # postgresql storage
           - { storage: postgresql, name: default, remote-profile: remote-sql }
           - { storage: postgresql, groups: auth, remote-profile: remote-sql }
           - { storage: postgresql, groups: migration, remote-profile: remote-sql }
+          - { storage: postgresql, groups: contracts, remote-profile: remote-sql }
           # kafkasql storage
           - { storage: kafkasql, name: default, remote-profile: remote-kafka }
           - { storage: kafkasql, groups: auth, remote-profile: remote-kafka }
           - { storage: kafkasql, groups: migration, remote-profile: remote-kafka }
           - { storage: kafkasql, groups: kafkasql-snapshotting, remote-profile: remote-kafka }
+          - { storage: kafkasql, groups: contracts, remote-profile: remote-kafka }
           # kubernetesops storage
           - { storage: kubernetesops, groups: kubernetesops, remote-profile: remote-kubernetesops }
     steps:
