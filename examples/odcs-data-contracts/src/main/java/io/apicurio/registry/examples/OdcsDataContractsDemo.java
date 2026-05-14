@@ -165,7 +165,6 @@ public class OdcsDataContractsDemo {
 
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
-            e.printStackTrace();
         } finally {
             DefaultVertxInstance.close();
         }
