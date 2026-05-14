@@ -4,23 +4,26 @@ import io.apicurio.registry.client.RegistryClientFactory;
 import io.apicurio.registry.client.common.DefaultVertxInstance;
 import io.apicurio.registry.client.common.RegistryClientOptions;
 import io.apicurio.registry.rest.client.RegistryClient;
+import io.apicurio.registry.rest.client.groups.item.artifacts.item.contract.promote.PromotePostRequestBody;
+import io.apicurio.registry.rest.client.groups.item.artifacts.item.contract.promote.PromotePostRequestBodyTargetStage;
+import io.apicurio.registry.rest.client.models.ContractMetadata;
 import io.apicurio.registry.rest.client.models.CreateArtifact;
 import io.apicurio.registry.rest.client.models.CreateVersion;
+import io.apicurio.registry.rest.client.models.OdcsContractResult;
 import io.apicurio.registry.rest.client.models.OdcsContractSummary;
 import io.apicurio.registry.rest.client.models.VersionContent;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Demonstrates ODCS Data Contracts with Apicurio Registry.
+ * Demonstrates ODCS Data Contracts with Apicurio Registry using the Java SDK.
  *
  * Prerequisites:
  *   1. Start Apicurio Registry with contracts enabled:
@@ -35,8 +38,8 @@ import java.util.stream.Collectors;
  * This example walks through the complete ODCS data contract lifecycle:
  *   1. Register an Avro schema artifact
  *   2. Submit an ODCS v3.1 data contract referencing the schema
- *   3. Verify the contract was projected (labels, rules, tags)
- *   4. List contracts in the group
+ *   3. List contracts in the group
+ *   4. Retrieve the contract metadata
  *   5. Export the contract back as ODCS YAML
  *   6. Check the quality score
  *   7. Promote through deployment stages (DEV -> STAGE)
@@ -47,6 +50,7 @@ public class OdcsDataContractsDemo {
     private static final String REGISTRY_URL = "http://localhost:8080/apis/registry/v3";
     private static final String GROUP_ID = "odcs-example";
     private static final String ARTIFACT_ID = "OrderEvent";
+    private static final String CONTRACT_ID = "orders-contract";
 
     private static final String AVRO_SCHEMA = """
             {
@@ -76,12 +80,14 @@ public class OdcsDataContractsDemo {
             // Step 2: Submit the ODCS contract
             System.out.println("\n2. Submitting ODCS data contract...");
             String contractYaml = loadContractYaml();
-            String submitResponse = httpPost(
-                    REGISTRY_URL + "/groups/" + GROUP_ID + "/contracts",
-                    "application/x-yaml",
-                    contractYaml);
-            System.out.println("   Contract submitted. Response:");
-            System.out.println("   " + submitResponse);
+            OdcsContractResult result = client.groups().byGroupId(GROUP_ID)
+                    .contracts()
+                    .post(new ByteArrayInputStream(
+                            contractYaml.getBytes(StandardCharsets.UTF_8)));
+            System.out.println("   Contract submitted: " + result.getContractId());
+            System.out.println("   Rules applied: " + result.getProjection().getRulesApplied());
+            System.out.println("   Labels applied: " + result.getProjection().getLabelsApplied());
+            System.out.println("   Tags applied: " + result.getProjection().getTagsApplied());
 
             // Step 3: List contracts in the group
             System.out.println("\n3. Listing contracts in group '" + GROUP_ID + "'...");
@@ -98,46 +104,61 @@ public class OdcsDataContractsDemo {
 
             // Step 4: Get the contract metadata
             System.out.println("\n4. Getting contract metadata...");
-            String metadata = httpGet(
-                    REGISTRY_URL + "/groups/" + GROUP_ID + "/artifacts/" + ARTIFACT_ID
-                            + "/contract/metadata");
-            System.out.println("   Metadata: " + metadata);
+            ContractMetadata metadata = client.groups().byGroupId(GROUP_ID)
+                    .artifacts().byArtifactId(ARTIFACT_ID)
+                    .contract().metadata().get();
+            System.out.println("   Status: " + metadata.getStatus());
+            System.out.println("   Owner: " + metadata.getOwnerTeam());
+            System.out.println("   Classification: " + metadata.getClassification());
 
             // Step 5: Export the contract as ODCS YAML
             System.out.println("\n5. Exporting contract as ODCS YAML...");
-            String exported = httpGet(
-                    REGISTRY_URL + "/groups/" + GROUP_ID + "/artifacts/" + ARTIFACT_ID
-                            + "/contract/export");
+            InputStream exported = client.groups().byGroupId(GROUP_ID)
+                    .artifacts().byArtifactId(ARTIFACT_ID)
+                    .contract().export().get();
+            String exportedYaml = new BufferedReader(
+                    new InputStreamReader(exported, StandardCharsets.UTF_8))
+                    .lines().collect(Collectors.joining("\n"));
             System.out.println("   Exported YAML (first 200 chars):");
-            System.out.println("   " + exported.substring(0, Math.min(200, exported.length())) + "...");
+            System.out.println("   " + exportedYaml.substring(0,
+                    Math.min(200, exportedYaml.length())) + "...");
 
             // Step 6: Check quality score
             System.out.println("\n6. Checking quality score...");
-            String quality = httpGet(
-                    REGISTRY_URL + "/groups/" + GROUP_ID + "/artifacts/" + ARTIFACT_ID
-                            + "/contract/quality?contractId=orders-contract");
-            System.out.println("   Quality: " + quality);
+            var quality = client.groups().byGroupId(GROUP_ID)
+                    .artifacts().byArtifactId(ARTIFACT_ID)
+                    .contract().quality().get(config -> {
+                        config.queryParameters.contractId = CONTRACT_ID;
+                    });
+            System.out.println("   Overall: " + quality.getOverall());
+            System.out.println("   Completeness: " + quality.getCompleteness());
+            System.out.println("   Compliance: " + quality.getCompliance());
+            System.out.println("   Stability: " + quality.getStability());
 
             // Step 7: Promote through stages
             System.out.println("\n7. Promoting contract through stages...");
-            String promoteDevResponse = httpPost(
-                    REGISTRY_URL + "/groups/" + GROUP_ID + "/artifacts/" + ARTIFACT_ID
-                            + "/contract/promote",
-                    "application/json",
-                    "{\"contractId\":\"orders-contract\",\"targetStage\":\"DEV\"}");
-            System.out.println("   Promoted to DEV: " + promoteDevResponse);
+            PromotePostRequestBody promoteDevBody = new PromotePostRequestBody();
+            promoteDevBody.setContractId(CONTRACT_ID);
+            promoteDevBody.setTargetStage(PromotePostRequestBodyTargetStage.DEV);
+            var devResult = client.groups().byGroupId(GROUP_ID)
+                    .artifacts().byArtifactId(ARTIFACT_ID)
+                    .contract().promote().post(promoteDevBody);
+            System.out.println("   Promoted to: " + devResult.getStage());
 
-            String promoteStageResponse = httpPost(
-                    REGISTRY_URL + "/groups/" + GROUP_ID + "/artifacts/" + ARTIFACT_ID
-                            + "/contract/promote",
-                    "application/json",
-                    "{\"contractId\":\"orders-contract\",\"targetStage\":\"STAGE\"}");
-            System.out.println("   Promoted to STAGE: " + promoteStageResponse);
+            PromotePostRequestBody promoteStageBody = new PromotePostRequestBody();
+            promoteStageBody.setContractId(CONTRACT_ID);
+            promoteStageBody.setTargetStage(PromotePostRequestBodyTargetStage.STAGE);
+            var stageResult = client.groups().byGroupId(GROUP_ID)
+                    .artifacts().byArtifactId(ARTIFACT_ID)
+                    .contract().promote().post(promoteStageBody);
+            System.out.println("   Promoted to: " + stageResult.getStage());
 
             // Step 8: Clean up
             System.out.println("\n8. Cleaning up...");
-            httpDelete(REGISTRY_URL + "/groups/" + GROUP_ID + "/contracts/orders-contract");
-            client.groups().byGroupId(GROUP_ID).artifacts().byArtifactId(ARTIFACT_ID).delete();
+            client.groups().byGroupId(GROUP_ID)
+                    .contracts().byContractId(CONTRACT_ID).delete();
+            client.groups().byGroupId(GROUP_ID)
+                    .artifacts().byArtifactId(ARTIFACT_ID).delete();
             System.out.println("   Cleaned up contract and schema artifact.");
 
             System.out.println("\n=== Demo complete! ===");
@@ -164,53 +185,17 @@ public class OdcsDataContractsDemo {
     }
 
     private static String loadContractYaml() throws IOException {
-        try (var stream = OdcsDataContractsDemo.class.getResourceAsStream("/order-contract.yaml")) {
+        try (var stream = OdcsDataContractsDemo.class.getResourceAsStream(
+                "/order-contract.yaml")) {
             if (stream == null) {
                 throw new IOException("order-contract.yaml not found in classpath");
             }
-            String yaml = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))
+            String yaml = new BufferedReader(
+                    new InputStreamReader(stream, StandardCharsets.UTF_8))
                     .lines().collect(Collectors.joining("\n"));
             return yaml
                     .replace("${GROUP_ID}", GROUP_ID)
                     .replace("${ARTIFACT_ID}", ARTIFACT_ID);
-        }
-    }
-
-    private static String httpPost(String url, String contentType, String body) throws IOException {
-        HttpURLConnection conn = (HttpURLConnection) URI.create(url).toURL().openConnection();
-        conn.setRequestMethod("POST");
-        conn.setRequestProperty("Content-Type", contentType);
-        conn.setDoOutput(true);
-        try (OutputStream os = conn.getOutputStream()) {
-            os.write(body.getBytes(StandardCharsets.UTF_8));
-        }
-        return readResponse(conn);
-    }
-
-    private static String httpGet(String url) throws IOException {
-        HttpURLConnection conn = (HttpURLConnection) URI.create(url).toURL().openConnection();
-        conn.setRequestMethod("GET");
-        return readResponse(conn);
-    }
-
-    private static void httpDelete(String url) throws IOException {
-        HttpURLConnection conn = (HttpURLConnection) URI.create(url).toURL().openConnection();
-        conn.setRequestMethod("DELETE");
-        conn.getResponseCode();
-        conn.disconnect();
-    }
-
-    private static String readResponse(HttpURLConnection conn) throws IOException {
-        int code = conn.getResponseCode();
-        var stream = code >= 400 ? conn.getErrorStream() : conn.getInputStream();
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
-            String response = reader.lines().collect(Collectors.joining("\n"));
-            if (code >= 400) {
-                throw new IOException("HTTP " + code + ": " + response);
-            }
-            return response;
-        } finally {
-            conn.disconnect();
         }
     }
 }
