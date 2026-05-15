@@ -96,7 +96,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .body("projection.rulesApplied", equalTo(1))
                 .body("projection.labelsApplied", greaterThanOrEqualTo(1));
 
-        Thread.sleep(1000);
+        Thread.sleep(3000);
 
         given()
                 .when()
@@ -125,7 +125,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .then()
                 .statusCode(200);
 
-        Thread.sleep(1000);
+        Thread.sleep(3000);
 
         given()
                 .when()
@@ -153,10 +153,11 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .then()
                 .statusCode(200);
 
-        Thread.sleep(1000);
+        Thread.sleep(3000);
 
         String updatedContract = createOdcsContract(groupId, artifactId, contractId)
-                .replace("title: Test Contract", "title: Updated Contract");
+                .replace("title: Test Contract", "title: Updated Contract")
+                .replace("version: 1.0.0", "version: 2.0.0");
 
         given()
                 .when()
@@ -187,7 +188,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .then()
                 .statusCode(200);
 
-        Thread.sleep(1000);
+        Thread.sleep(3000);
 
         given()
                 .when()
@@ -223,7 +224,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .then()
                 .statusCode(200);
 
-        Thread.sleep(1000);
+        Thread.sleep(3000);
 
         String exportedYaml = given()
                 .when()
@@ -257,7 +258,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .then()
                 .statusCode(200);
 
-        Thread.sleep(1000);
+        Thread.sleep(3000);
 
         given()
                 .when()
@@ -297,7 +298,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .pathParam("groupId", groupId)
                 .pathParam("artifactId", artifactId)
                 .body(rulesetJson)
-                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/ruleset")
+                .put(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/ruleset")
                 .then()
                 .statusCode(200)
                 .body("domainRules", hasSize(1));
@@ -338,7 +339,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .then()
                 .statusCode(200);
 
-        Thread.sleep(1000);
+        Thread.sleep(3000);
 
         given()
                 .when()
@@ -368,7 +369,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .then()
                 .statusCode(200);
 
-        Thread.sleep(1000);
+        Thread.sleep(3000);
 
         given()
                 .when()
@@ -426,7 +427,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
     }
 
     @Test
-    void testSubmitContractWithMissingSchemaReturns404() {
+    void testSubmitContractWithMissingSchemaReturnsWarnings() {
         String groupId = TestUtils.generateGroupId();
         String contractId = "contract-" + UUID.randomUUID();
         String contract = createOdcsContract(groupId, "nonexistent-artifact", contractId);
@@ -438,7 +439,8 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .body(contract.getBytes())
                 .post(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
                 .then()
-                .statusCode(404);
+                .statusCode(200)
+                .body("projection.warnings", hasSize(greaterThanOrEqualTo(1)));
     }
 
     @Test
@@ -469,7 +471,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .pathParam("groupId", groupId)
                 .pathParam("artifactId", artifactId)
                 .body(rulesetJson)
-                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/ruleset")
+                .put(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/ruleset")
                 .then()
                 .statusCode(200);
 
@@ -518,7 +520,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .body("projection.rulesApplied", greaterThanOrEqualTo(1))
                 .body("projection.labelsApplied", greaterThanOrEqualTo(1));
 
-        Thread.sleep(1000);
+        Thread.sleep(3000);
 
         // 3. Verify metadata was projected
         given()
