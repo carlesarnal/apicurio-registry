@@ -89,7 +89,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .header("Content-Type", "application/x-yaml")
                 .pathParam("groupId", groupId)
                 .body(contract.getBytes())
-                .post("/groups/{groupId}/contracts")
+                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
                 .then()
                 .statusCode(200)
                 .body("contractId", notNullValue())
@@ -102,7 +102,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .when()
                 .pathParam("groupId", groupId)
                 .pathParam("contractId", contractId)
-                .get("/groups/{groupId}/contracts/{contractId}")
+                .get(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts/{contractId}")
                 .then()
                 .statusCode(200)
                 .contentType("application/x-yaml");
@@ -121,7 +121,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .header("Content-Type", "application/x-yaml")
                 .pathParam("groupId", groupId)
                 .body(createOdcsContract(groupId, artifactId, contractId).getBytes())
-                .post("/groups/{groupId}/contracts")
+                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
                 .then()
                 .statusCode(200);
 
@@ -130,7 +130,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
         given()
                 .when()
                 .pathParam("groupId", groupId)
-                .get("/groups/{groupId}/contracts")
+                .get(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
                 .then()
                 .statusCode(200)
                 .body("$", hasSize(greaterThanOrEqualTo(1)));
@@ -149,7 +149,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .header("Content-Type", "application/x-yaml")
                 .pathParam("groupId", groupId)
                 .body(createOdcsContract(groupId, artifactId, contractId).getBytes())
-                .post("/groups/{groupId}/contracts")
+                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
                 .then()
                 .statusCode(200);
 
@@ -164,7 +164,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .pathParam("groupId", groupId)
                 .pathParam("contractId", contractId)
                 .body(updatedContract.getBytes())
-                .put("/groups/{groupId}/contracts/{contractId}")
+                .put(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts/{contractId}")
                 .then()
                 .statusCode(200)
                 .body("contractId", notNullValue());
@@ -183,7 +183,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .header("Content-Type", "application/x-yaml")
                 .pathParam("groupId", groupId)
                 .body(createOdcsContract(groupId, artifactId, contractId).getBytes())
-                .post("/groups/{groupId}/contracts")
+                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
                 .then()
                 .statusCode(200);
 
@@ -193,7 +193,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .when()
                 .pathParam("groupId", groupId)
                 .pathParam("contractId", contractId)
-                .delete("/groups/{groupId}/contracts/{contractId}")
+                .delete(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts/{contractId}")
                 .then()
                 .statusCode(204);
 
@@ -201,7 +201,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .when()
                 .pathParam("groupId", groupId)
                 .pathParam("contractId", contractId)
-                .get("/groups/{groupId}/contracts/{contractId}")
+                .get(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts/{contractId}")
                 .then()
                 .statusCode(404);
     }
@@ -219,7 +219,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .header("Content-Type", "application/x-yaml")
                 .pathParam("groupId", groupId)
                 .body(createOdcsContract(groupId, artifactId, contractId).getBytes())
-                .post("/groups/{groupId}/contracts")
+                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
                 .then()
                 .statusCode(200);
 
@@ -229,7 +229,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .when()
                 .pathParam("groupId", groupId)
                 .pathParam("artifactId", artifactId)
-                .get("/groups/{groupId}/artifacts/{artifactId}/contract/export")
+                .get(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/export")
                 .then()
                 .statusCode(200)
                 .extract()
@@ -253,7 +253,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .header("Content-Type", "application/x-yaml")
                 .pathParam("groupId", groupId)
                 .body(createOdcsContract(groupId, artifactId, contractId).getBytes())
-                .post("/groups/{groupId}/contracts")
+                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
                 .then()
                 .statusCode(200);
 
@@ -263,7 +263,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .when()
                 .pathParam("groupId", groupId)
                 .pathParam("artifactId", artifactId)
-                .get("/groups/{groupId}/artifacts/{artifactId}/contract/metadata")
+                .get(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/metadata")
                 .then()
                 .statusCode(200)
                 .body("status", notNullValue());
@@ -297,7 +297,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .pathParam("groupId", groupId)
                 .pathParam("artifactId", artifactId)
                 .body(rulesetJson)
-                .post("/groups/{groupId}/artifacts/{artifactId}/contract/ruleset")
+                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/ruleset")
                 .then()
                 .statusCode(200)
                 .body("domainRules", hasSize(1));
@@ -306,7 +306,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .when()
                 .pathParam("groupId", groupId)
                 .pathParam("artifactId", artifactId)
-                .get("/groups/{groupId}/artifacts/{artifactId}/contract/ruleset")
+                .get(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/ruleset")
                 .then()
                 .statusCode(200)
                 .body("domainRules", hasSize(1))
@@ -316,7 +316,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .when()
                 .pathParam("groupId", groupId)
                 .pathParam("artifactId", artifactId)
-                .delete("/groups/{groupId}/artifacts/{artifactId}/contract/ruleset")
+                .delete(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/ruleset")
                 .then()
                 .statusCode(204);
     }
@@ -334,7 +334,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .header("Content-Type", "application/x-yaml")
                 .pathParam("groupId", groupId)
                 .body(createOdcsContract(groupId, artifactId, contractId).getBytes())
-                .post("/groups/{groupId}/contracts")
+                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
                 .then()
                 .statusCode(200);
 
@@ -345,7 +345,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .pathParam("groupId", groupId)
                 .pathParam("artifactId", artifactId)
                 .queryParam("contractId", contractId)
-                .get("/groups/{groupId}/artifacts/{artifactId}/contract/quality")
+                .get(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/quality")
                 .then()
                 .statusCode(200)
                 .body("overall", notNullValue());
@@ -364,7 +364,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .header("Content-Type", "application/x-yaml")
                 .pathParam("groupId", groupId)
                 .body(createOdcsContract(groupId, artifactId, contractId).getBytes())
-                .post("/groups/{groupId}/contracts")
+                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
                 .then()
                 .statusCode(200);
 
@@ -376,7 +376,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .pathParam("groupId", groupId)
                 .pathParam("artifactId", artifactId)
                 .body("{\"contractId\":\"" + contractId + "\",\"targetStage\":\"DEV\"}")
-                .post("/groups/{groupId}/artifacts/{artifactId}/contract/promote")
+                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/promote")
                 .then()
                 .statusCode(200)
                 .body("stage", equalTo("DEV"));
@@ -387,7 +387,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .pathParam("groupId", groupId)
                 .pathParam("artifactId", artifactId)
                 .body("{\"contractId\":\"" + contractId + "\",\"targetStage\":\"STAGE\"}")
-                .post("/groups/{groupId}/artifacts/{artifactId}/contract/promote")
+                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/promote")
                 .then()
                 .statusCode(200)
                 .body("stage", equalTo("STAGE"));
@@ -406,7 +406,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .pathParam("groupId", groupId)
                 .pathParam("artifactId", artifactId)
                 .body("{\"contractId\":\"test\",\"targetStage\":\"INVALID\"}")
-                .post("/groups/{groupId}/artifacts/{artifactId}/contract/promote")
+                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/promote")
                 .then()
                 .statusCode(400);
     }
@@ -420,7 +420,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .header("Content-Type", "application/x-yaml")
                 .pathParam("groupId", groupId)
                 .body("not valid yaml {{{".getBytes())
-                .post("/groups/{groupId}/contracts")
+                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
                 .then()
                 .statusCode(400);
     }
@@ -436,7 +436,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .header("Content-Type", "application/x-yaml")
                 .pathParam("groupId", groupId)
                 .body(contract.getBytes())
-                .post("/groups/{groupId}/contracts")
+                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
                 .then()
                 .statusCode(404);
     }
@@ -469,7 +469,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .pathParam("groupId", groupId)
                 .pathParam("artifactId", artifactId)
                 .body(rulesetJson)
-                .post("/groups/{groupId}/artifacts/{artifactId}/contract/ruleset")
+                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/ruleset")
                 .then()
                 .statusCode(200);
 
@@ -487,7 +487,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .pathParam("artifactId", artifactId)
                 .pathParam("versionExpression", "latest")
                 .body(validRecord)
-                .post("/groups/{groupId}/artifacts/{artifactId}/versions/{versionExpression}/contract/execute")
+                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/versions/{versionExpression}/contract/execute")
                 .then()
                 .statusCode(200)
                 .body("passed", equalTo(true));
@@ -511,7 +511,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .header("Content-Type", "application/x-yaml")
                 .pathParam("groupId", groupId)
                 .body(contract.getBytes())
-                .post("/groups/{groupId}/contracts")
+                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
                 .then()
                 .statusCode(200)
                 .body("contractId", notNullValue())
@@ -525,7 +525,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .when()
                 .pathParam("groupId", groupId)
                 .pathParam("artifactId", artifactId)
-                .get("/groups/{groupId}/artifacts/{artifactId}/contract/metadata")
+                .get(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/metadata")
                 .then()
                 .statusCode(200)
                 .body("status", notNullValue());
@@ -536,7 +536,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .pathParam("groupId", groupId)
                 .pathParam("artifactId", artifactId)
                 .queryParam("contractId", contractId)
-                .get("/groups/{groupId}/artifacts/{artifactId}/contract/quality")
+                .get(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/quality")
                 .then()
                 .statusCode(200)
                 .body("overall", notNullValue());
@@ -548,7 +548,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .pathParam("groupId", groupId)
                 .pathParam("artifactId", artifactId)
                 .body("{\"contractId\":\"" + contractId + "\",\"targetStage\":\"DEV\"}")
-                .post("/groups/{groupId}/artifacts/{artifactId}/contract/promote")
+                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/promote")
                 .then()
                 .statusCode(200)
                 .body("stage", equalTo("DEV"));
@@ -558,7 +558,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .when()
                 .pathParam("groupId", groupId)
                 .pathParam("artifactId", artifactId)
-                .get("/groups/{groupId}/artifacts/{artifactId}/contract/export")
+                .get(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/export")
                 .then()
                 .statusCode(200)
                 .extract()
@@ -571,7 +571,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 .when()
                 .pathParam("groupId", groupId)
                 .pathParam("contractId", contractId)
-                .delete("/groups/{groupId}/contracts/{contractId}")
+                .delete(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts/{contractId}")
                 .then()
                 .statusCode(204);
 
