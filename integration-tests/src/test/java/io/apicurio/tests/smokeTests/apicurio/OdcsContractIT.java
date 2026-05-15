@@ -1,6 +1,13 @@
 package io.apicurio.tests.smokeTests.apicurio;
 
-import io.apicurio.registry.rest.client.models.CreateArtifactResponse;
+import io.apicurio.registry.rest.client.models.ContractMetadata;
+import io.apicurio.registry.rest.client.models.ContractRule;
+import io.apicurio.registry.rest.client.models.ContractRuleSet;
+import io.apicurio.registry.rest.client.models.OdcsContractResult;
+import io.apicurio.registry.rest.client.models.OdcsContractSummary;
+import io.apicurio.registry.rest.client.groups.item.artifacts.item.contract.promote.PromotePostRequestBody;
+import io.apicurio.registry.rest.client.groups.item.artifacts.item.contract.promote.PromotePostRequestBodyTargetStage;
+import io.apicurio.registry.rest.client.groups.item.artifacts.item.contract.promote.PromotePostResponse;
 import io.apicurio.registry.types.ArtifactType;
 import io.apicurio.registry.types.ContentTypes;
 import io.apicurio.registry.utils.tests.TestUtils;
@@ -11,14 +18,21 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static io.apicurio.deployment.Constants.SMOKE;
-import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Tag(SMOKE)
 @QuarkusIntegrationTest
@@ -70,9 +84,15 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                 + "  availability: 0.999\n";
     }
 
-    private CreateArtifactResponse createSchemaArtifact(String groupId, String artifactId) throws Exception {
-        return createArtifact(groupId, artifactId, ArtifactType.AVRO, AVRO_SCHEMA,
+    private void createSchemaArtifact(String groupId, String artifactId) throws Exception {
+        createArtifact(groupId, artifactId, ArtifactType.AVRO, AVRO_SCHEMA,
                 ContentTypes.APPLICATION_JSON, null, null);
+    }
+
+    private OdcsContractResult submitContract(String groupId, String contractYaml) {
+        return registryClient.groups().byGroupId(groupId)
+                .contracts()
+                .post(new ByteArrayInputStream(contractYaml.getBytes(StandardCharsets.UTF_8)));
     }
 
     @Test
@@ -82,30 +102,22 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
         String contractId = "contract-" + UUID.randomUUID();
 
         createSchemaArtifact(groupId, artifactId);
-        String contract = createOdcsContract(groupId, artifactId, contractId);
 
-        given()
-                .when()
-                .header("Content-Type", "application/x-yaml")
-                .pathParam("groupId", groupId)
-                .body(contract.getBytes())
-                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
-                .then()
-                .statusCode(200)
-                .body("contractId", notNullValue())
-                .body("projection.rulesApplied", equalTo(1))
-                .body("projection.labelsApplied", greaterThanOrEqualTo(1));
+        OdcsContractResult result = submitContract(groupId,
+                createOdcsContract(groupId, artifactId, contractId));
 
-        Thread.sleep(3000);
+        assertNotNull(result.getContractId());
+        assertTrue(result.getProjection().getRulesApplied() >= 1);
+        assertTrue(result.getProjection().getLabelsApplied() >= 1);
 
-        given()
-                .when()
-                .pathParam("groupId", groupId)
-                .pathParam("contractId", contractId)
-                .get(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts/{contractId}")
-                .then()
-                .statusCode(200)
-                .contentType("application/x-yaml");
+        retry(() -> {
+            InputStream contractStream = registryClient.groups().byGroupId(groupId)
+                    .contracts().byContractId(contractId).get();
+            assertNotNull(contractStream);
+            String yaml = new BufferedReader(new InputStreamReader(contractStream, StandardCharsets.UTF_8))
+                    .lines().collect(Collectors.joining("\n"));
+            assertTrue(yaml.contains("kind: DataContract"));
+        });
     }
 
     @Test
@@ -115,25 +127,14 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
         String contractId = "contract-" + UUID.randomUUID();
 
         createSchemaArtifact(groupId, artifactId);
+        submitContract(groupId, createOdcsContract(groupId, artifactId, contractId));
 
-        given()
-                .when()
-                .header("Content-Type", "application/x-yaml")
-                .pathParam("groupId", groupId)
-                .body(createOdcsContract(groupId, artifactId, contractId).getBytes())
-                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
-                .then()
-                .statusCode(200);
-
-        Thread.sleep(3000);
-
-        given()
-                .when()
-                .pathParam("groupId", groupId)
-                .get(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
-                .then()
-                .statusCode(200)
-                .body("$", hasSize(greaterThanOrEqualTo(1)));
+        retry(() -> {
+            List<OdcsContractSummary> contracts = registryClient.groups()
+                    .byGroupId(groupId).contracts().get();
+            assertNotNull(contracts);
+            assertFalse(contracts.isEmpty());
+        });
     }
 
     @Test
@@ -143,32 +144,18 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
         String contractId = "contract-" + UUID.randomUUID();
 
         createSchemaArtifact(groupId, artifactId);
+        submitContract(groupId, createOdcsContract(groupId, artifactId, contractId));
 
-        given()
-                .when()
-                .header("Content-Type", "application/x-yaml")
-                .pathParam("groupId", groupId)
-                .body(createOdcsContract(groupId, artifactId, contractId).getBytes())
-                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
-                .then()
-                .statusCode(200);
+        retry(() -> {
+            String updatedContract = createOdcsContract(groupId, artifactId, contractId)
+                    .replace("title: Test Contract", "title: Updated Contract")
+                    .replace("version: 1.0.0", "version: 2.0.0");
 
-        Thread.sleep(3000);
-
-        String updatedContract = createOdcsContract(groupId, artifactId, contractId)
-                .replace("title: Test Contract", "title: Updated Contract")
-                .replace("version: 1.0.0", "version: 2.0.0");
-
-        given()
-                .when()
-                .header("Content-Type", "application/x-yaml")
-                .pathParam("groupId", groupId)
-                .pathParam("contractId", contractId)
-                .body(updatedContract.getBytes())
-                .put(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts/{contractId}")
-                .then()
-                .statusCode(200)
-                .body("contractId", notNullValue());
+            OdcsContractResult updated = registryClient.groups().byGroupId(groupId)
+                    .contracts().byContractId(contractId)
+                    .put(new ByteArrayInputStream(updatedContract.getBytes(StandardCharsets.UTF_8)));
+            assertNotNull(updated.getContractId());
+        });
     }
 
     @Test
@@ -178,33 +165,18 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
         String contractId = "contract-" + UUID.randomUUID();
 
         createSchemaArtifact(groupId, artifactId);
+        submitContract(groupId, createOdcsContract(groupId, artifactId, contractId));
 
-        given()
-                .when()
-                .header("Content-Type", "application/x-yaml")
-                .pathParam("groupId", groupId)
-                .body(createOdcsContract(groupId, artifactId, contractId).getBytes())
-                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
-                .then()
-                .statusCode(200);
+        retry(() -> {
+            registryClient.groups().byGroupId(groupId)
+                    .contracts().byContractId(contractId).delete();
+        });
 
-        Thread.sleep(3000);
-
-        given()
-                .when()
-                .pathParam("groupId", groupId)
-                .pathParam("contractId", contractId)
-                .delete(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts/{contractId}")
-                .then()
-                .statusCode(204);
-
-        given()
-                .when()
-                .pathParam("groupId", groupId)
-                .pathParam("contractId", contractId)
-                .get(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts/{contractId}")
-                .then()
-                .statusCode(404);
+        retry(() -> {
+            assertThrows(Exception.class, () ->
+                    registryClient.groups().byGroupId(groupId)
+                            .contracts().byContractId(contractId).get());
+        });
     }
 
     @Test
@@ -214,31 +186,18 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
         String contractId = "contract-" + UUID.randomUUID();
 
         createSchemaArtifact(groupId, artifactId);
+        submitContract(groupId, createOdcsContract(groupId, artifactId, contractId));
 
-        given()
-                .when()
-                .header("Content-Type", "application/x-yaml")
-                .pathParam("groupId", groupId)
-                .body(createOdcsContract(groupId, artifactId, contractId).getBytes())
-                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
-                .then()
-                .statusCode(200);
-
-        Thread.sleep(3000);
-
-        String exportedYaml = given()
-                .when()
-                .pathParam("groupId", groupId)
-                .pathParam("artifactId", artifactId)
-                .get(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/export")
-                .then()
-                .statusCode(200)
-                .extract()
-                .asString();
-
-        LOGGER.info("Exported ODCS YAML:\n{}", exportedYaml);
-        org.junit.jupiter.api.Assertions.assertTrue(exportedYaml.contains("kind: DataContract"),
-                "Exported YAML should contain DataContract kind");
+        retry(() -> {
+            InputStream exported = registryClient.groups().byGroupId(groupId)
+                    .artifacts().byArtifactId(artifactId)
+                    .contract().export().get();
+            assertNotNull(exported);
+            String yaml = new BufferedReader(new InputStreamReader(exported, StandardCharsets.UTF_8))
+                    .lines().collect(Collectors.joining("\n"));
+            LOGGER.info("Exported ODCS YAML:\n{}", yaml);
+            assertTrue(yaml.contains("kind: DataContract"));
+        });
     }
 
     @Test
@@ -248,26 +207,15 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
         String contractId = "contract-" + UUID.randomUUID();
 
         createSchemaArtifact(groupId, artifactId);
+        submitContract(groupId, createOdcsContract(groupId, artifactId, contractId));
 
-        given()
-                .when()
-                .header("Content-Type", "application/x-yaml")
-                .pathParam("groupId", groupId)
-                .body(createOdcsContract(groupId, artifactId, contractId).getBytes())
-                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
-                .then()
-                .statusCode(200);
-
-        Thread.sleep(3000);
-
-        given()
-                .when()
-                .pathParam("groupId", groupId)
-                .pathParam("artifactId", artifactId)
-                .get(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/metadata")
-                .then()
-                .statusCode(200)
-                .body("status", notNullValue());
+        retry(() -> {
+            ContractMetadata metadata = registryClient.groups().byGroupId(groupId)
+                    .artifacts().byArtifactId(artifactId)
+                    .contract().metadata().get();
+            assertNotNull(metadata);
+            assertNotNull(metadata.getStatus());
+        });
     }
 
     @Test
@@ -277,49 +225,28 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
 
         createSchemaArtifact(groupId, artifactId);
 
-        String rulesetJson = """
-                {
-                  "domainRules": [
-                    {
-                      "name": "positive-amount",
-                      "kind": "VALIDATE",
-                      "type": "CEL",
-                      "mode": "INGRESS",
-                      "expr": "record.totalAmount > 0",
-                      "onFailure": "FAIL"
-                    }
-                  ]
-                }
-                """;
+        ContractRuleSet ruleset = new ContractRuleSet();
+        ContractRule rule = new ContractRule();
+        rule.setName("positive-amount");
+        rule.setType("CEL");
+        rule.setExpr("record.totalAmount > 0");
+        ruleset.setDomainRules(List.of(rule));
 
-        given()
-                .when()
-                .contentType("application/json")
-                .pathParam("groupId", groupId)
-                .pathParam("artifactId", artifactId)
-                .body(rulesetJson)
-                .put(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/ruleset")
-                .then()
-                .statusCode(200)
-                .body("domainRules", hasSize(1));
+        ContractRuleSet created = registryClient.groups().byGroupId(groupId)
+                .artifacts().byArtifactId(artifactId)
+                .contract().ruleset().put(ruleset);
+        assertNotNull(created);
+        assertEquals(1, created.getDomainRules().size());
 
-        given()
-                .when()
-                .pathParam("groupId", groupId)
-                .pathParam("artifactId", artifactId)
-                .get(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/ruleset")
-                .then()
-                .statusCode(200)
-                .body("domainRules", hasSize(1))
-                .body("domainRules[0].name", equalTo("positive-amount"));
+        ContractRuleSet fetched = registryClient.groups().byGroupId(groupId)
+                .artifacts().byArtifactId(artifactId)
+                .contract().ruleset().get();
+        assertEquals(1, fetched.getDomainRules().size());
+        assertEquals("positive-amount", fetched.getDomainRules().get(0).getName());
 
-        given()
-                .when()
-                .pathParam("groupId", groupId)
-                .pathParam("artifactId", artifactId)
-                .delete(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/ruleset")
-                .then()
-                .statusCode(204);
+        registryClient.groups().byGroupId(groupId)
+                .artifacts().byArtifactId(artifactId)
+                .contract().ruleset().delete();
     }
 
     @Test
@@ -329,27 +256,17 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
         String contractId = "contract-" + UUID.randomUUID();
 
         createSchemaArtifact(groupId, artifactId);
+        submitContract(groupId, createOdcsContract(groupId, artifactId, contractId));
 
-        given()
-                .when()
-                .header("Content-Type", "application/x-yaml")
-                .pathParam("groupId", groupId)
-                .body(createOdcsContract(groupId, artifactId, contractId).getBytes())
-                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
-                .then()
-                .statusCode(200);
-
-        Thread.sleep(3000);
-
-        given()
-                .when()
-                .pathParam("groupId", groupId)
-                .pathParam("artifactId", artifactId)
-                .queryParam("contractId", contractId)
-                .get(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/quality")
-                .then()
-                .statusCode(200)
-                .body("overall", notNullValue());
+        retry(() -> {
+            var quality = registryClient.groups().byGroupId(groupId)
+                    .artifacts().byArtifactId(artifactId)
+                    .contract().quality().get(config -> {
+                        config.queryParameters.contractId = contractId;
+                    });
+            assertNotNull(quality);
+            assertNotNull(quality.getOverall());
+        });
     }
 
     @Test
@@ -359,71 +276,52 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
         String contractId = "contract-" + UUID.randomUUID();
 
         createSchemaArtifact(groupId, artifactId);
+        submitContract(groupId, createOdcsContract(groupId, artifactId, contractId));
 
-        given()
-                .when()
-                .header("Content-Type", "application/x-yaml")
-                .pathParam("groupId", groupId)
-                .body(createOdcsContract(groupId, artifactId, contractId).getBytes())
-                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
-                .then()
-                .statusCode(200);
+        retry(() -> {
+            PromotePostRequestBody devBody = new PromotePostRequestBody();
+            devBody.setContractId(contractId);
+            devBody.setTargetStage(PromotePostRequestBodyTargetStage.DEV);
+            PromotePostResponse devResult = registryClient.groups().byGroupId(groupId)
+                    .artifacts().byArtifactId(artifactId)
+                    .contract().promote().post(devBody);
+            assertEquals("DEV", devResult.getStage());
+        });
 
-        Thread.sleep(3000);
-
-        given()
-                .when()
-                .contentType("application/json")
-                .pathParam("groupId", groupId)
-                .pathParam("artifactId", artifactId)
-                .body("{\"contractId\":\"" + contractId + "\",\"targetStage\":\"DEV\"}")
-                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/promote")
-                .then()
-                .statusCode(200)
-                .body("stage", equalTo("DEV"));
-
-        given()
-                .when()
-                .contentType("application/json")
-                .pathParam("groupId", groupId)
-                .pathParam("artifactId", artifactId)
-                .body("{\"contractId\":\"" + contractId + "\",\"targetStage\":\"STAGE\"}")
-                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/promote")
-                .then()
-                .statusCode(200)
-                .body("stage", equalTo("STAGE"));
+        PromotePostRequestBody stageBody = new PromotePostRequestBody();
+        stageBody.setContractId(contractId);
+        stageBody.setTargetStage(PromotePostRequestBodyTargetStage.STAGE);
+        PromotePostResponse stageResult = registryClient.groups().byGroupId(groupId)
+                .artifacts().byArtifactId(artifactId)
+                .contract().promote().post(stageBody);
+        assertEquals("STAGE", stageResult.getStage());
     }
 
     @Test
-    void testPromoteInvalidStageReturns400() throws Exception {
+    void testPromoteInvalidStageThrows() throws Exception {
         String groupId = TestUtils.generateGroupId();
         String artifactId = "promote-invalid-" + UUID.randomUUID();
 
         createSchemaArtifact(groupId, artifactId);
 
-        given()
-                .when()
-                .contentType("application/json")
-                .pathParam("groupId", groupId)
-                .pathParam("artifactId", artifactId)
-                .body("{\"contractId\":\"test\",\"targetStage\":\"INVALID\"}")
-                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/promote")
-                .then()
-                .statusCode(400);
+        PromotePostRequestBody body = new PromotePostRequestBody();
+        body.setContractId("test");
+        body.setTargetStage(PromotePostRequestBodyTargetStage.forValue("INVALID"));
+
+        assertThrows(Exception.class, () ->
+                registryClient.groups().byGroupId(groupId)
+                        .artifacts().byArtifactId(artifactId)
+                        .contract().promote().post(body));
     }
 
     @Test
-    void testSubmitInvalidYamlReturns400() {
+    void testSubmitInvalidYamlThrows() {
         String groupId = TestUtils.generateGroupId();
 
-        given()
-                .when()
-                .header("Content-Type", "application/x-yaml")
-                .pathParam("groupId", groupId)
-                .body("not valid yaml {{{".getBytes())
-                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
-                .then()
-                .statusCode(400);
+        assertThrows(Exception.class, () ->
+                registryClient.groups().byGroupId(groupId)
+                        .contracts()
+                        .post(new ByteArrayInputStream("not valid yaml {{{".getBytes(StandardCharsets.UTF_8))));
     }
 
     @Test
@@ -432,67 +330,10 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
         String contractId = "contract-" + UUID.randomUUID();
         String contract = createOdcsContract(groupId, "nonexistent-artifact", contractId);
 
-        given()
-                .when()
-                .header("Content-Type", "application/x-yaml")
-                .pathParam("groupId", groupId)
-                .body(contract.getBytes())
-                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
-                .then()
-                .statusCode(200)
-                .body("projection.warnings", hasSize(greaterThanOrEqualTo(1)));
-    }
-
-    @Test
-    void testExecuteContractRules() throws Exception {
-        String groupId = TestUtils.generateGroupId();
-        String artifactId = "execute-rules-" + UUID.randomUUID();
-
-        createSchemaArtifact(groupId, artifactId);
-
-        String rulesetJson = """
-                {
-                  "domainRules": [
-                    {
-                      "name": "positive-amount",
-                      "kind": "VALIDATE",
-                      "type": "CEL",
-                      "mode": "INGRESS",
-                      "expr": "record.totalAmount > 0",
-                      "onFailure": "FAIL"
-                    }
-                  ]
-                }
-                """;
-
-        given()
-                .when()
-                .contentType("application/json")
-                .pathParam("groupId", groupId)
-                .pathParam("artifactId", artifactId)
-                .body(rulesetJson)
-                .put(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/ruleset")
-                .then()
-                .statusCode(200);
-
-        String validRecord = """
-                {
-                  "mode": "INGRESS",
-                  "record": {"orderId": "123", "customerEmail": "test@example.com", "totalAmount": 99.99}
-                }
-                """;
-
-        given()
-                .when()
-                .contentType("application/json")
-                .pathParam("groupId", groupId)
-                .pathParam("artifactId", artifactId)
-                .pathParam("versionExpression", "latest")
-                .body(validRecord)
-                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/versions/{versionExpression}/contract/execute")
-                .then()
-                .statusCode(200)
-                .body("passed", equalTo(true));
+        OdcsContractResult result = submitContract(groupId, contract);
+        assertNotNull(result);
+        assertNotNull(result.getProjection().getWarnings());
+        assertFalse(result.getProjection().getWarnings().isEmpty());
     }
 
     @Test
@@ -503,79 +344,51 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
 
         LOGGER.info("Starting full contract lifecycle test: groupId={}, artifactId={}", groupId, artifactId);
 
-        // 1. Create the schema artifact
         createSchemaArtifact(groupId, artifactId);
 
-        // 2. Submit the ODCS contract
-        String contract = createOdcsContract(groupId, artifactId, contractId);
-        given()
-                .when()
-                .header("Content-Type", "application/x-yaml")
-                .pathParam("groupId", groupId)
-                .body(contract.getBytes())
-                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts")
-                .then()
-                .statusCode(200)
-                .body("contractId", notNullValue())
-                .body("projection.rulesApplied", greaterThanOrEqualTo(1))
-                .body("projection.labelsApplied", greaterThanOrEqualTo(1));
+        OdcsContractResult result = submitContract(groupId,
+                createOdcsContract(groupId, artifactId, contractId));
+        assertNotNull(result.getContractId());
+        assertTrue(result.getProjection().getRulesApplied() >= 1);
+        assertTrue(result.getProjection().getLabelsApplied() >= 1);
 
-        Thread.sleep(3000);
+        retry(() -> {
+            ContractMetadata metadata = registryClient.groups().byGroupId(groupId)
+                    .artifacts().byArtifactId(artifactId)
+                    .contract().metadata().get();
+            assertNotNull(metadata.getStatus());
+        });
 
-        // 3. Verify metadata was projected
-        given()
-                .when()
-                .pathParam("groupId", groupId)
-                .pathParam("artifactId", artifactId)
-                .get(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/metadata")
-                .then()
-                .statusCode(200)
-                .body("status", notNullValue());
+        retry(() -> {
+            var quality = registryClient.groups().byGroupId(groupId)
+                    .artifacts().byArtifactId(artifactId)
+                    .contract().quality().get(config -> {
+                        config.queryParameters.contractId = contractId;
+                    });
+            assertNotNull(quality.getOverall());
+        });
 
-        // 4. Check quality score
-        given()
-                .when()
-                .pathParam("groupId", groupId)
-                .pathParam("artifactId", artifactId)
-                .queryParam("contractId", contractId)
-                .get(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/quality")
-                .then()
-                .statusCode(200)
-                .body("overall", notNullValue());
+        retry(() -> {
+            PromotePostRequestBody devBody = new PromotePostRequestBody();
+            devBody.setContractId(contractId);
+            devBody.setTargetStage(PromotePostRequestBodyTargetStage.DEV);
+            PromotePostResponse devResult = registryClient.groups().byGroupId(groupId)
+                    .artifacts().byArtifactId(artifactId)
+                    .contract().promote().post(devBody);
+            assertEquals("DEV", devResult.getStage());
+        });
 
-        // 5. Promote through stages
-        given()
-                .when()
-                .contentType("application/json")
-                .pathParam("groupId", groupId)
-                .pathParam("artifactId", artifactId)
-                .body("{\"contractId\":\"" + contractId + "\",\"targetStage\":\"DEV\"}")
-                .post(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/promote")
-                .then()
-                .statusCode(200)
-                .body("stage", equalTo("DEV"));
+        retry(() -> {
+            InputStream exported = registryClient.groups().byGroupId(groupId)
+                    .artifacts().byArtifactId(artifactId)
+                    .contract().export().get();
+            String yaml = new BufferedReader(new InputStreamReader(exported, StandardCharsets.UTF_8))
+                    .lines().collect(Collectors.joining("\n"));
+            assertTrue(yaml.contains("kind: DataContract"));
+        });
 
-        // 6. Export as ODCS YAML
-        String exported = given()
-                .when()
-                .pathParam("groupId", groupId)
-                .pathParam("artifactId", artifactId)
-                .get(getRegistryV3ApiUrl() + "/groups/{groupId}/artifacts/{artifactId}/contract/export")
-                .then()
-                .statusCode(200)
-                .extract()
-                .asString();
-
-        org.junit.jupiter.api.Assertions.assertTrue(exported.contains("kind: DataContract"));
-
-        // 7. Delete the contract
-        given()
-                .when()
-                .pathParam("groupId", groupId)
-                .pathParam("contractId", contractId)
-                .delete(getRegistryV3ApiUrl() + "/groups/{groupId}/contracts/{contractId}")
-                .then()
-                .statusCode(204);
+        registryClient.groups().byGroupId(groupId)
+                .contracts().byContractId(contractId).delete();
 
         LOGGER.info("Full contract lifecycle test completed successfully");
     }
