@@ -2300,7 +2300,10 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
         ParameterValidationUtils.requireParameter("contractId", contractId);
 
         String rawGroupId = new GroupId(groupId).getRawGroupIdWithNull();
-        var content = storage.getArtifactVersionContent(rawGroupId, contractId, "latest");
+        var gav = VersionExpressionParser.parse(new GA(rawGroupId, contractId), "branch=latest",
+                (ga, branchId) -> storage.getBranchTip(ga, branchId, RetrievalBehavior.SKIP_DISABLED_LATEST));
+        var content = storage.getArtifactVersionContent(
+                gav.getRawGroupIdWithNull(), gav.getRawArtifactId(), gav.getRawVersionId());
         return content.getContent().content();
     }
 

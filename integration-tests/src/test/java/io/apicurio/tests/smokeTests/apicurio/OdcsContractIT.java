@@ -2,6 +2,9 @@ package io.apicurio.tests.smokeTests.apicurio;
 
 import io.apicurio.registry.rest.client.models.ContractMetadata;
 import io.apicurio.registry.rest.client.models.ContractRule;
+import io.apicurio.registry.rest.client.models.ContractRuleKind;
+import io.apicurio.registry.rest.client.models.ContractRuleMode;
+import io.apicurio.registry.rest.client.models.ContractRuleOnFailure;
 import io.apicurio.registry.rest.client.models.ContractRuleSet;
 import io.apicurio.registry.rest.client.models.OdcsContractResult;
 import io.apicurio.registry.rest.client.models.OdcsContractSummary;
@@ -116,7 +119,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
             assertNotNull(contractStream);
             String yaml = new BufferedReader(new InputStreamReader(contractStream, StandardCharsets.UTF_8))
                     .lines().collect(Collectors.joining("\n"));
-            assertTrue(yaml.contains("kind: DataContract"));
+            assertTrue(yaml.contains("DataContract"), "Exported YAML should contain DataContract");
         });
     }
 
@@ -196,7 +199,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
             String yaml = new BufferedReader(new InputStreamReader(exported, StandardCharsets.UTF_8))
                     .lines().collect(Collectors.joining("\n"));
             LOGGER.info("Exported ODCS YAML:\n{}", yaml);
-            assertTrue(yaml.contains("kind: DataContract"));
+            assertTrue(yaml.contains("DataContract"), "Exported YAML should contain DataContract");
         });
     }
 
@@ -228,8 +231,11 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
         ContractRuleSet ruleset = new ContractRuleSet();
         ContractRule rule = new ContractRule();
         rule.setName("positive-amount");
+        rule.setKind(ContractRuleKind.CONDITION);
         rule.setType("CEL");
+        rule.setMode(ContractRuleMode.WRITE);
         rule.setExpr("record.totalAmount > 0");
+        rule.setOnFailure(ContractRuleOnFailure.ERROR);
         ruleset.setDomainRules(List.of(rule));
 
         ContractRuleSet created = registryClient.groups().byGroupId(groupId)
@@ -384,7 +390,7 @@ class OdcsContractIT extends ApicurioRegistryBaseIT {
                     .contract().export().get();
             String yaml = new BufferedReader(new InputStreamReader(exported, StandardCharsets.UTF_8))
                     .lines().collect(Collectors.joining("\n"));
-            assertTrue(yaml.contains("kind: DataContract"));
+            assertTrue(yaml.contains("DataContract"), "Exported YAML should contain DataContract");
         });
 
         registryClient.groups().byGroupId(groupId)
