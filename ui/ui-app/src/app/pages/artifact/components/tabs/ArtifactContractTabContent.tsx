@@ -75,7 +75,7 @@ export const ArtifactContractTabContent: FunctionComponent<ArtifactContractTabCo
             setHasContract(!!metadata.status);
         }).catch(() => setHasContract(false));
 
-        contracts.getContractQuality(groupId, artifactId, "default").then(setQualityScore).catch(() => {});
+        contracts.getContractQuality(groupId, artifactId, contractId()).then(setQualityScore).catch(() => {});
         contracts.getContractAuditLog(groupId, artifactId, 0, 10).then(setAuditLog).catch(() => {});
         contracts.getContractRuleset(groupId, artifactId).then(setRuleset).catch(() => {});
     };

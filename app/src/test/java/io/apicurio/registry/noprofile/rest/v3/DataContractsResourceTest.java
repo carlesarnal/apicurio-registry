@@ -512,4 +512,260 @@ public class DataContractsResourceTest extends AbstractResourceTestBase {
                 .body("migrationRules", hasSize(1))
                 .body("migrationRules[0].name", equalTo("migration-1"));
     }
+
+    // -- Status Transition Tests --
+
+    @Test
+    public void testStatusTransition_DraftToStable() throws Exception {
+        String artifactId = "testStatusTransition_DraftToStable-" + UUID.randomUUID();
+        String content = resourceToString("openapi-empty.json");
+        createArtifact(GROUP, artifactId, ArtifactType.OPENAPI, content, ContentTypes.APPLICATION_JSON);
+
+        given().when().contentType(CT_JSON)
+                .pathParam("groupId", GROUP).pathParam("artifactId", artifactId)
+                .body("{\"status\":\"DRAFT\"}")
+                .put("/registry/v3/groups/{groupId}/artifacts/{artifactId}/contract/metadata")
+                .then().statusCode(200);
+
+        given().when().contentType(CT_JSON)
+                .pathParam("groupId", GROUP).pathParam("artifactId", artifactId)
+                .body("{\"status\":\"STABLE\"}")
+                .post("/registry/v3/groups/{groupId}/artifacts/{artifactId}/contract/status")
+                .then().statusCode(200)
+                .body("status", equalTo("STABLE"));
+
+        given().when()
+                .pathParam("groupId", GROUP).pathParam("artifactId", artifactId)
+                .get("/registry/v3/groups/{groupId}/artifacts/{artifactId}/contract/metadata")
+                .then().statusCode(200)
+                .body("status", equalTo("STABLE"));
+    }
+
+    @Test
+    public void testStatusTransition_RepeatedTransitionsNoConstraintViolation() throws Exception {
+        String artifactId = "testStatusTransition_Repeated-" + UUID.randomUUID();
+        String content = resourceToString("openapi-empty.json");
+        createArtifact(GROUP, artifactId, ArtifactType.OPENAPI, content, ContentTypes.APPLICATION_JSON);
+
+        given().when().contentType(CT_JSON)
+                .pathParam("groupId", GROUP).pathParam("artifactId", artifactId)
+                .body("{\"status\":\"DRAFT\"}")
+                .put("/registry/v3/groups/{groupId}/artifacts/{artifactId}/contract/metadata")
+                .then().statusCode(200);
+
+        given().when().contentType(CT_JSON)
+                .pathParam("groupId", GROUP).pathParam("artifactId", artifactId)
+                .body("{\"status\":\"STABLE\"}")
+                .post("/registry/v3/groups/{groupId}/artifacts/{artifactId}/contract/status")
+                .then().statusCode(200);
+
+        given().when().contentType(CT_JSON)
+                .pathParam("groupId", GROUP).pathParam("artifactId", artifactId)
+                .body("{\"status\":\"DEPRECATED\"}")
+                .post("/registry/v3/groups/{groupId}/artifacts/{artifactId}/contract/status")
+                .then().statusCode(200)
+                .body("status", equalTo("DEPRECATED"));
+    }
+
+    @Test
+    public void testStatusTransition_DoesNotWipeOtherLabels() throws Exception {
+        String artifactId = "testStatusTransition_Labels-" + UUID.randomUUID();
+        String content = resourceToString("openapi-empty.json");
+        createArtifact(GROUP, artifactId, ArtifactType.OPENAPI, content, ContentTypes.APPLICATION_JSON);
+
+        given().when().contentType(CT_JSON)
+                .pathParam("groupId", GROUP).pathParam("artifactId", artifactId)
+                .body("{\"status\":\"DRAFT\",\"ownerTeam\":\"my-team\",\"classification\":\"INTERNAL\"}")
+                .put("/registry/v3/groups/{groupId}/artifacts/{artifactId}/contract/metadata")
+                .then().statusCode(200);
+
+        given().when().contentType(CT_JSON)
+                .pathParam("groupId", GROUP).pathParam("artifactId", artifactId)
+                .body("{\"status\":\"STABLE\"}")
+                .post("/registry/v3/groups/{groupId}/artifacts/{artifactId}/contract/status")
+                .then().statusCode(200);
+
+        given().when()
+                .pathParam("groupId", GROUP).pathParam("artifactId", artifactId)
+                .get("/registry/v3/groups/{groupId}/artifacts/{artifactId}/contract/metadata")
+                .then().statusCode(200)
+                .body("status", equalTo("STABLE"))
+                .body("ownerTeam", equalTo("my-team"))
+                .body("classification", equalTo("INTERNAL"));
+    }
+
+    // -- Compatibility Group Tests --
+
+    @Test
+    public void testCompatibilityGroup_SetAndGet() throws Exception {
+        String artifactId = "testCompatGroup_SetGet-" + UUID.randomUUID();
+        String content = resourceToString("openapi-empty.json");
+        createArtifact(GROUP, artifactId, ArtifactType.OPENAPI, content, ContentTypes.APPLICATION_JSON);
+
+        given().when().contentType(CT_JSON)
+                .pathParam("groupId", GROUP).pathParam("artifactId", artifactId)
+                .body("{\"status\":\"DRAFT\"}")
+                .put("/registry/v3/groups/{groupId}/artifacts/{artifactId}/contract/metadata")
+                .then().statusCode(200);
+
+        given().when().contentType(CT_JSON)
+                .pathParam("groupId", GROUP).pathParam("artifactId", artifactId)
+                .body("{\"contractId\":\"default\",\"compatibilityGroup\":\"my-group-v1\"}")
+                .put("/registry/v3/groups/{groupId}/artifacts/{artifactId}/contract/compatibility-group")
+                .then().statusCode(204);
+
+        given().when()
+                .pathParam("groupId", GROUP).pathParam("artifactId", artifactId)
+                .queryParam("contractId", "default")
+                .get("/registry/v3/groups/{groupId}/artifacts/{artifactId}/contract/compatibility-group")
+                .then().statusCode(200)
+                .body("compatibilityGroup", equalTo("my-group-v1"));
+    }
+
+    @Test
+    public void testCompatibilityGroup_DoesNotWipeOtherLabels() throws Exception {
+        String artifactId = "testCompatGroup_NoWipe-" + UUID.randomUUID();
+        String avroSchema = "{\"type\":\"record\",\"name\":\"T\",\"fields\":[{\"name\":\"x\",\"type\":\"int\"}]}";
+        createArtifact(GROUP, artifactId, ArtifactType.AVRO, avroSchema, ContentTypes.APPLICATION_JSON);
+
+        String contractYaml = "apiVersion: v3.1.0\nkind: DataContract\nid: mycontract\n"
+                + "info:\n  title: Test\n  version: 1.0.0\n  status: active\n  dataClassification: internal\n"
+                + "team:\n  name: team-x\n  domain: test\n  contact: test@example.com\n"
+                + "schemas:\n  - name: T\n    type: avro\n    location: " + GROUP + "/" + artifactId + ":latest\n";
+
+        given().when().contentType("application/x-yaml")
+                .pathParam("groupId", GROUP)
+                .body(contractYaml.getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                .post("/registry/v3/groups/{groupId}/contracts")
+                .then().statusCode(200);
+
+        given().when().contentType(CT_JSON)
+                .pathParam("groupId", GROUP).pathParam("artifactId", artifactId)
+                .body("{\"contractId\":\"mycontract\",\"compatibilityGroup\":\"compat-v2\"}")
+                .put("/registry/v3/groups/{groupId}/artifacts/{artifactId}/contract/compatibility-group")
+                .then().statusCode(204);
+
+        given().when()
+                .pathParam("groupId", GROUP).pathParam("artifactId", artifactId)
+                .get("/registry/v3/groups/{groupId}/artifacts/{artifactId}/contract/metadata")
+                .then().statusCode(200)
+                .body("status", equalTo("STABLE"))
+                .body("ownerTeam", equalTo("team-x"))
+                .body("classification", equalTo("INTERNAL"))
+                .body("compatibilityGroup", equalTo("compat-v2"));
+    }
+
+    // -- Global Contract Rules Tests --
+
+    @Test
+    public void testGlobalContractRules_CrudLifecycle() throws Exception {
+        given().when()
+                .get("/registry/v3/admin/contracts/ruleset")
+                .then().statusCode(200)
+                .body("domainRules", empty())
+                .body("migrationRules", empty());
+
+        given().when().contentType(CT_JSON)
+                .body("""
+                        {
+                            "domainRules": [
+                                {"name":"global-rule","kind":"CONDITION","type":"CEL",
+                                 "mode":"WRITE","expr":"true","onFailure":"ERROR","disabled":false}
+                            ],
+                            "migrationRules": []
+                        }
+                        """)
+                .put("/registry/v3/admin/contracts/ruleset")
+                .then().statusCode(200)
+                .body("domainRules", hasSize(1))
+                .body("domainRules[0].name", equalTo("global-rule"));
+
+        given().when()
+                .get("/registry/v3/admin/contracts/ruleset")
+                .then().statusCode(200)
+                .body("domainRules", hasSize(1));
+
+        given().when()
+                .delete("/registry/v3/admin/contracts/ruleset")
+                .then().statusCode(204);
+
+        given().when()
+                .get("/registry/v3/admin/contracts/ruleset")
+                .then().statusCode(200)
+                .body("domainRules", empty());
+    }
+
+    // -- Migration Endpoint Tests --
+
+    @Test
+    public void testMigrateEndpoint_NoRules() throws Exception {
+        String artifactId = "testMigrate_NoRules-" + UUID.randomUUID();
+        createArtifact(GROUP, artifactId, ArtifactType.AVRO,
+                "{\"type\":\"record\",\"name\":\"R\",\"fields\":[{\"name\":\"x\",\"type\":\"int\"}]}",
+                ContentTypes.APPLICATION_JSON);
+
+        given().when().contentType(CT_JSON)
+                .pathParam("groupId", GROUP).pathParam("artifactId", artifactId)
+                .body("{\"fromVersion\":\"1\",\"toVersion\":\"1\",\"record\":{\"x\":42}}")
+                .post("/registry/v3/groups/{groupId}/artifacts/{artifactId}/contract/migrate")
+                .then().statusCode(200)
+                .body("passed", equalTo(true));
+    }
+
+    // -- Contract Rule Execution Tests --
+
+    @Test
+    public void testExecuteContractRules_PassesWithValidData() throws Exception {
+        String artifactId = "testExecuteRules_Pass-" + UUID.randomUUID();
+        createArtifact(GROUP, artifactId, ArtifactType.AVRO,
+                "{\"type\":\"record\",\"name\":\"R\",\"fields\":[{\"name\":\"amount\",\"type\":\"double\"}]}",
+                ContentTypes.APPLICATION_JSON);
+
+        given().when().contentType(CT_JSON)
+                .pathParam("groupId", GROUP).pathParam("artifactId", artifactId)
+                .body("""
+                        {"domainRules":[{"name":"pos","kind":"CONDITION","type":"CEL",
+                        "mode":"WRITE","expr":"amount > 0","onFailure":"ERROR","disabled":false}],
+                        "migrationRules":[]}
+                        """)
+                .put("/registry/v3/groups/{groupId}/artifacts/{artifactId}/contract/ruleset")
+                .then().statusCode(200);
+
+        given().when().contentType(CT_JSON)
+                .pathParam("groupId", GROUP).pathParam("artifactId", artifactId)
+                .pathParam("versionExpression", "1")
+                .body("{\"mode\":\"WRITE\",\"record\":{\"amount\":99.99}}")
+                .post("/registry/v3/groups/{groupId}/artifacts/{artifactId}/versions/{versionExpression}/contract/execute")
+                .then().statusCode(200)
+                .body("passed", equalTo(true))
+                .body("executedRules", equalTo(1))
+                .body("failedRules", equalTo(0));
+    }
+
+    @Test
+    public void testExecuteContractRules_FailsWithInvalidData() throws Exception {
+        String artifactId = "testExecuteRules_Fail-" + UUID.randomUUID();
+        createArtifact(GROUP, artifactId, ArtifactType.AVRO,
+                "{\"type\":\"record\",\"name\":\"R\",\"fields\":[{\"name\":\"amount\",\"type\":\"double\"}]}",
+                ContentTypes.APPLICATION_JSON);
+
+        given().when().contentType(CT_JSON)
+                .pathParam("groupId", GROUP).pathParam("artifactId", artifactId)
+                .body("""
+                        {"domainRules":[{"name":"pos","kind":"CONDITION","type":"CEL",
+                        "mode":"WRITE","expr":"amount > 0","onFailure":"ERROR","disabled":false}],
+                        "migrationRules":[]}
+                        """)
+                .put("/registry/v3/groups/{groupId}/artifacts/{artifactId}/contract/ruleset")
+                .then().statusCode(200);
+
+        given().when().contentType(CT_JSON)
+                .pathParam("groupId", GROUP).pathParam("artifactId", artifactId)
+                .pathParam("versionExpression", "1")
+                .body("{\"mode\":\"WRITE\",\"record\":{\"amount\":-5.0}}")
+                .post("/registry/v3/groups/{groupId}/artifacts/{artifactId}/versions/{versionExpression}/contract/execute")
+                .then().statusCode(200)
+                .body("passed", equalTo(false))
+                .body("failedRules", equalTo(1));
+    }
 }
