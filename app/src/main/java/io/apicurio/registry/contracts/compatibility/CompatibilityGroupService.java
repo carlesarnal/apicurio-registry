@@ -27,9 +27,8 @@ public class CompatibilityGroupService {
 
     public void setCompatibilityGroup(String groupId, String artifactId,
             String contractId, String compatGroup) {
-        String prefix = ContractLabels.contractPrefix(contractId);
-        Map<String, String> labels = Map.of(
-                prefix + ContractLabels.SUFFIX_COMPATIBILITY_GROUP, compatGroup);
-        storage.mergeArtifactLabels(groupId, artifactId, prefix, labels);
+        String key = ContractLabels.key(contractId, ContractLabels.SUFFIX_COMPATIBILITY_GROUP);
+        Map<String, String> labels = Map.of(key, compatGroup);
+        storage.mergeArtifactLabels(groupId, artifactId, key, labels);
     }
 }

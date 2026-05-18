@@ -322,14 +322,15 @@ public class OdcsDataContractsDemo {
 
             // ==================== Clean Up ====================
 
-            // Step 15: Clean up
-            System.out.println("\n15. Cleaning up...");
-            client.admin().contracts().ruleset().delete();
-            client.groups().byGroupId(GROUP_ID)
-                    .contracts().byContractId(CONTRACT_ID).delete();
-            client.groups().byGroupId(GROUP_ID)
-                    .artifacts().byArtifactId(ARTIFACT_ID).delete();
-            System.out.println("   Cleaned up global rules, contract, and schema.");
+            // Step 15: Clean up (commented out to allow UI testing)
+            // System.out.println("\n15. Cleaning up...");
+            // client.admin().contracts().ruleset().delete();
+            // client.groups().byGroupId(GROUP_ID)
+            //         .contracts().byContractId(CONTRACT_ID).delete();
+            // client.groups().byGroupId(GROUP_ID)
+            //         .artifacts().byArtifactId(ARTIFACT_ID).delete();
+            // System.out.println("   Cleaned up global rules, contract, and schema.");
+            System.out.println("\n15. Cleanup skipped — data left for UI testing.");
 
             System.out.println("\n=== Demo complete! ===");
             System.out.println("\nTo explore the UI:");
