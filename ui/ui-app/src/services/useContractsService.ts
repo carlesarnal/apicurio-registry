@@ -120,6 +120,54 @@ const promoteContract = async (config: ConfigService, auth: AuthService,
     return axios.post(endpoint, { contractId, targetStage }, options).then(response => response.data);
 };
 
+const getContractYaml = async (config: ConfigService, auth: AuthService,
+    groupId: string | null, contractId: string): Promise<string> => {
+    const baseHref: string = config.artifactsUrl();
+    groupId = groupId || "default";
+    const endpoint: string = createEndpoint(baseHref, "/groups/:groupId/contracts/:contractId",
+        { groupId, contractId });
+    const options = await createAuthOptions(auth);
+    return axios.get(endpoint, { ...options, headers: { ...options.headers, "Accept": "application/x-yaml" } })
+        .then(response => response.data);
+};
+
+const submitContract = async (config: ConfigService, auth: AuthService,
+    groupId: string | null, yaml: string): Promise<void> => {
+    const baseHref: string = config.artifactsUrl();
+    groupId = groupId || "default";
+    const endpoint: string = createEndpoint(baseHref, "/groups/:groupId/contracts",
+        { groupId });
+    const options = await createAuthOptions(auth);
+    return axios.post(endpoint, yaml, {
+        ...options,
+        headers: { ...options.headers, "Content-Type": "application/x-yaml" }
+    }).then(response => response.data);
+};
+
+const updateContract = async (config: ConfigService, auth: AuthService,
+    groupId: string | null, contractId: string, yaml: string): Promise<void> => {
+    const baseHref: string = config.artifactsUrl();
+    groupId = groupId || "default";
+    const endpoint: string = createEndpoint(baseHref, "/groups/:groupId/contracts/:contractId",
+        { groupId, contractId });
+    const options = await createAuthOptions(auth);
+    return axios.put(endpoint, yaml, {
+        ...options,
+        headers: { ...options.headers, "Content-Type": "application/x-yaml" }
+    }).then(response => response.data);
+};
+
+const exportContractAsOdcs = async (config: ConfigService, auth: AuthService,
+    groupId: string | null, artifactId: string): Promise<string> => {
+    const baseHref: string = config.artifactsUrl();
+    groupId = groupId || "default";
+    const endpoint: string = createEndpoint(baseHref, "/groups/:groupId/artifacts/:artifactId/contract/export",
+        { groupId, artifactId });
+    const options = await createAuthOptions(auth);
+    return axios.get(endpoint, { ...options, headers: { ...options.headers, "Accept": "application/x-yaml" } })
+        .then(response => response.data);
+};
+
 export type ContractsService = {
     getContractMetadata(groupId: string | null, artifactId: string): Promise<ContractMetadata>;
     getContractQuality(groupId: string | null, artifactId: string, contractId: string): Promise<QualityScore>;
@@ -128,6 +176,10 @@ export type ContractsService = {
     transitionContractStatus(groupId: string | null, artifactId: string, status: string): Promise<ContractMetadata>;
     getContractRuleset(groupId: string | null, artifactId: string): Promise<ContractRuleSet>;
     promoteContract(groupId: string | null, artifactId: string, contractId: string, targetStage: string): Promise<void>;
+    getContractYaml(groupId: string | null, contractId: string): Promise<string>;
+    submitContract(groupId: string | null, yaml: string): Promise<void>;
+    updateContract(groupId: string | null, contractId: string, yaml: string): Promise<void>;
+    exportContractAsOdcs(groupId: string | null, artifactId: string): Promise<string>;
 };
 
 export const useContractsService: () => ContractsService = (): ContractsService => {
@@ -149,5 +201,13 @@ export const useContractsService: () => ContractsService = (): ContractsService 
             getContractRuleset(config, auth, groupId, artifactId),
         promoteContract: (groupId: string | null, artifactId: string, contractId: string, targetStage: string) =>
             promoteContract(config, auth, groupId, artifactId, contractId, targetStage),
+        getContractYaml: (groupId: string | null, contractId: string) =>
+            getContractYaml(config, auth, groupId, contractId),
+        submitContract: (groupId: string | null, yaml: string) =>
+            submitContract(config, auth, groupId, yaml),
+        updateContract: (groupId: string | null, contractId: string, yaml: string) =>
+            updateContract(config, auth, groupId, contractId, yaml),
+        exportContractAsOdcs: (groupId: string | null, artifactId: string) =>
+            exportContractAsOdcs(config, auth, groupId, artifactId),
     };
 };

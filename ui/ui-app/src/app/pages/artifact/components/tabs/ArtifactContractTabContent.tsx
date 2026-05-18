@@ -56,6 +56,10 @@ export const ArtifactContractTabContent: FunctionComponent<ArtifactContractTabCo
     const [actionError, setActionError] = useState<string>();
     const [isPromoteModalOpen, setIsPromoteModalOpen] = useState(false);
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+    const [isOdcsEditorOpen, setIsOdcsEditorOpen] = useState(false);
+    const [odcsYaml, setOdcsYaml] = useState<string>("");
+    const [odcsEditorValue, setOdcsEditorValue] = useState<string>("");
+    const [odcsSaving, setOdcsSaving] = useState(false);
 
     const contracts: ContractsService = useContractsService();
     const appNavigation = useAppNavigation();
@@ -77,6 +81,52 @@ export const ArtifactContractTabContent: FunctionComponent<ArtifactContractTabCo
     };
 
     useEffect(loadData, [props.artifact]);
+
+    const openOdcsEditor = () => {
+        setActionError(undefined);
+        const cid = contractId();
+        if (cid && cid !== "default") {
+            contracts.getContractYaml(groupId, cid).then(yaml => {
+                setOdcsYaml(yaml);
+                setOdcsEditorValue(yaml);
+                setIsOdcsEditorOpen(true);
+            }).catch(() => {
+                contracts.exportContractAsOdcs(groupId, artifactId!).then(yaml => {
+                    setOdcsYaml(yaml);
+                    setOdcsEditorValue(yaml);
+                    setIsOdcsEditorOpen(true);
+                }).catch(e => {
+                    setActionError("Could not load contract YAML: " + (e?.message || "unknown"));
+                });
+            });
+        } else {
+            contracts.exportContractAsOdcs(groupId, artifactId!).then(yaml => {
+                setOdcsYaml(yaml);
+                setOdcsEditorValue(yaml);
+                setIsOdcsEditorOpen(true);
+            }).catch(e => {
+                setActionError("Could not export contract: " + (e?.message || "unknown"));
+            });
+        }
+    };
+
+    const saveOdcsContract = () => {
+        setOdcsSaving(true);
+        setActionError(undefined);
+        const cid = contractId();
+        const save = cid && cid !== "default"
+            ? contracts.updateContract(groupId, cid, odcsEditorValue)
+            : contracts.submitContract(groupId, odcsEditorValue);
+        save.then(() => {
+            setOdcsSaving(false);
+            setIsOdcsEditorOpen(false);
+            loadData();
+        }).catch(e => {
+            setOdcsSaving(false);
+            setActionError("Failed to save contract: "
+                + (e?.response?.data?.detail || e?.message || "unknown"));
+        });
+    };
 
     const contractId = (): string => {
         const labels = props.artifact?.labels || {};
@@ -149,8 +199,11 @@ export const ArtifactContractTabContent: FunctionComponent<ArtifactContractTabCo
             <div className="artifact-contract-tab-content">
                 <EmptyState>
                     <EmptyStateBody>
-                        No contract metadata found for this artifact. Submit an ODCS contract
-                        or set contract metadata via the API to enable contract management.
+                        <p>No contract metadata found for this artifact.</p>
+                        <p style={{ marginTop: 10 }}>
+                            Submit an ODCS contract to define ownership, quality rules, SLA,
+                            and governance for this schema.
+                        </p>
                     </EmptyStateBody>
                 </EmptyState>
             </div>
@@ -187,6 +240,11 @@ export const ArtifactContractTabContent: FunctionComponent<ArtifactContractTabCo
                                                 iconPosition="end"
                                                 onClick={() => appNavigation.navigateTo(contractLink)}>
                                                 View contract artifact
+                                            </Button>
+                                            {" | "}
+                                            <Button variant="link" isInline
+                                                onClick={openOdcsEditor}>
+                                                Edit YAML
                                             </Button>
                                         </DescriptionListDescription>
                                     </DescriptionListGroup>
@@ -276,7 +334,7 @@ export const ArtifactContractTabContent: FunctionComponent<ArtifactContractTabCo
                                             <HelperTextItem variant={qualityScore.compliance >= 1.0 ? "success" : "warning"}>
                                                 {qualityScore.compliance >= 1.0
                                                     ? "Domain rules are defined and contract status is set."
-                                                    : "To improve: add at least one domain rule (e.g. a CEL validation rule) via PUT .../contract/ruleset, and set the contract status (DRAFT, STABLE, or DEPRECATED) via the ODCS contract's info.status field or PUT .../contract/status."}
+                                                    : "To improve: add at least one domain rule by editing the ODCS contract (quality.accuracy section) and re-submitting it. Also ensure the contract status is set (info.status: active/draft/deprecated)."}
                                             </HelperTextItem>
                                         </HelperText>
                                     </div>
@@ -286,7 +344,7 @@ export const ArtifactContractTabContent: FunctionComponent<ArtifactContractTabCo
                                             <HelperTextItem variant={qualityScore.stability >= 1.0 ? "success" : "warning"}>
                                                 {qualityScore.stability >= 1.0
                                                     ? "Contract is stable with version history."
-                                                    : "To improve: transition the contract status to STABLE (via PUT .../contract/status), publish more than one schema version (so there is version history), and ensure the ODCS contract has an id field."}
+                                                    : "To improve: use the Change button above to transition the status to STABLE, publish more than one schema version (so there is version history), and ensure the ODCS contract has an id field."}
                                             </HelperTextItem>
                                         </HelperText>
                                     </div>
@@ -332,14 +390,24 @@ export const ArtifactContractTabContent: FunctionComponent<ArtifactContractTabCo
                                     </Tbody>
                                 </Table>
                             ) : (
-                                <p>No contract rules defined. Add rules via the REST API: PUT /groups/&#123;groupId&#125;/artifacts/&#123;artifactId&#125;/contract/ruleset</p>
+                                <p>No contract rules defined. Add quality rules by editing the ODCS contract YAML
+                                    (quality.accuracy section) and re-submitting it.</p>
+                                <Button variant="secondary" onClick={openOdcsEditor}
+                                    style={{ marginTop: 10 }}>
+                                    Edit ODCS Contract
+                                </Button>
                             )}
-                            <HelperText style={{ marginTop: 10 }}>
-                                <HelperTextItem variant="indeterminate">
-                                    <strong>Condition</strong> rules validate data (pass/fail). <strong>Transform</strong> rules modify data (e.g. schema migration).
-                                    Rules are executed via POST .../contract/execute or automatically by SerDes when contract-rules.enabled=true.
-                                </HelperTextItem>
-                            </HelperText>
+                            <div style={{ marginTop: 10, display: "flex", gap: 10, alignItems: "center" }}>
+                                <Button variant="secondary" onClick={openOdcsEditor}>
+                                    Edit ODCS Contract
+                                </Button>
+                                <HelperText>
+                                    <HelperTextItem variant="indeterminate">
+                                        <strong>Condition</strong> rules validate data (pass/fail). <strong>Transform</strong> rules modify data (e.g. schema migration).
+                                        Rules come from the ODCS contract's <code>quality.accuracy</code> section. Edit the contract to add or modify rules.
+                                    </HelperTextItem>
+                                </HelperText>
+                            </div>
                         </CardBody>
                     </Card>
                 </GridItem>
@@ -444,6 +512,51 @@ export const ArtifactContractTabContent: FunctionComponent<ArtifactContractTabCo
                         )}
                         <ActionListItem>
                             <Button variant="link" onClick={() => setIsStatusModalOpen(false)}>Cancel</Button>
+                        </ActionListItem>
+                    </ActionList>
+                </ModalFooter>
+            </Modal>
+
+            {/* ODCS YAML editor modal */}
+            <Modal variant={ModalVariant.large}
+                isOpen={isOdcsEditorOpen}
+                onClose={() => setIsOdcsEditorOpen(false)}>
+                <ModalHeader title="Edit ODCS Contract" description={
+                    "Edit the ODCS v3.1 contract YAML. Changes to quality.accuracy rules, team metadata, "
+                    + "and service levels will be projected onto the schema artifact when saved."
+                } />
+                <ModalBody>
+                    <textarea
+                        value={odcsEditorValue}
+                        onChange={(e) => setOdcsEditorValue(e.target.value)}
+                        style={{
+                            width: "100%",
+                            minHeight: "400px",
+                            fontFamily: "monospace",
+                            fontSize: "13px",
+                            padding: "12px",
+                            border: "1px solid #ccc",
+                            borderRadius: "4px",
+                            resize: "vertical",
+                        }}
+                        spellCheck={false}
+                    />
+                    {actionError && <Alert variant="danger" title={actionError} isInline
+                        style={{ marginTop: 10 }} />}
+                </ModalBody>
+                <ModalFooter>
+                    <ActionList>
+                        <ActionListItem>
+                            <Button variant="primary" onClick={saveOdcsContract}
+                                isLoading={odcsSaving} isDisabled={odcsSaving}>
+                                Save &amp; Re-project
+                            </Button>
+                        </ActionListItem>
+                        <ActionListItem>
+                            <Button variant="link"
+                                onClick={() => setIsOdcsEditorOpen(false)}>
+                                Cancel
+                            </Button>
                         </ActionListItem>
                     </ActionList>
                 </ModalFooter>
