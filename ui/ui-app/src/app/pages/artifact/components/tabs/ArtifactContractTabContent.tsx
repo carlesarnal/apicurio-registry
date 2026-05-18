@@ -129,7 +129,8 @@ export const ArtifactContractTabContent: FunctionComponent<ArtifactContractTabCo
     };
 
     const contractId = (): string => {
-        const labels = props.artifact?.labels || {};
+        const labels = (props.artifact?.labels as any)?.additionalData
+            || props.artifact?.labels || {};
         for (const key of Object.keys(labels)) {
             if (key.startsWith("contract.") && key.endsWith(".id")) {
                 return labels[key] as string;
