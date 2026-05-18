@@ -375,41 +375,46 @@ Response:
 
 <!-- Slide 11: End-to-End Flow -->
 <div class="slide">
-<h2>End-to-End User Journey</h2>
+<h2>End-to-End User Journey (15 Steps)</h2>
 <div class="flow">
-<div class="flow-item">1. Create Schema<br><small>POST /artifacts<br>Avro with PII tags</small></div>
+<div class="flow-item">1. Create Schema<br><small>Avro with PII tags</small></div>
 <div class="flow-arrow">→</div>
-<div class="flow-item">2. Submit Contract<br><small>POST /contracts<br>ODCS YAML</small></div>
+<div class="flow-item">2. Submit Contract<br><small>ODCS YAML</small></div>
 <div class="flow-arrow">→</div>
-<div class="flow-item">3. Projection<br><small>Labels, rules, tags<br>applied to schema</small></div>
+<div class="flow-item">3-5. Inspect<br><small>List, metadata, export</small></div>
 <div class="flow-arrow">→</div>
-<div class="flow-item">4. Validate Data<br><small>POST /contract/execute<br>CEL rules run</small></div>
+<div class="flow-item">6-7. Govern<br><small>Quality + promote</small></div>
 </div>
-<div class="flow" style="margin-top:20px">
-<div class="flow-item">5. Check Quality<br><small>GET /contract/quality<br>Score: 0.85</small></div>
+<div class="flow" style="margin-top:15px">
+<div class="flow-item">8-9. Rules<br><small>Set CEL + execute</small></div>
 <div class="flow-arrow">→</div>
-<div class="flow-item">6. Promote<br><small>POST /contract/promote<br>DEV → STAGE</small></div>
+<div class="flow-item">10-11. Migrate<br><small>Compat group + v1→v2</small></div>
 <div class="flow-arrow">→</div>
-<div class="flow-item">7. Go to Prod<br><small>STAGE → PROD<br>Requires STABLE status</small></div>
+<div class="flow-item">12-13. Integrate<br><small>Search + audit log</small></div>
 <div class="flow-arrow">→</div>
-<div class="flow-item">8. Export<br><small>GET /contract/export<br>Reconstructed ODCS</small></div>
+<div class="flow-item">14. Global Rules<br><small>Org-wide policies</small></div>
 </div>
-<pre><code># 1. Create an Avro schema with PII-tagged fields
-curl -X POST /apis/registry/v3/groups/orders/artifacts -H 'Content-Type: application/json' -d @schema.json
+<pre><code># Run the full 15-step demo:
+cd examples/odcs-data-contracts && mvn compile exec:java
 
-# 2. Submit an ODCS contract referencing that schema
+# Key curl examples:
+# Submit ODCS contract
 curl -X POST /apis/registry/v3/groups/orders/contracts -H 'Content-Type: application/x-yaml' --data-binary @contract.yaml
 
-# 3. Execute quality rules against a data record
-curl -X POST /apis/registry/v3/groups/orders/artifacts/OrderEvent/versions/1/contract/execute \
-  -H 'Content-Type: application/json' -d '{"mode":"WRITE","record":{"totalAmount":100}}'
+# Execute CEL rules against a record
+curl -X POST .../versions/1/contract/execute -d '{"mode":"WRITE","record":{"totalAmount":100}}'
 
-# 4. Check quality score, then promote
-curl /apis/registry/v3/groups/orders/artifacts/OrderEvent/contract/quality?contractId=orders-contract
-curl -X POST /apis/registry/v3/groups/orders/artifacts/OrderEvent/contract/promote \
-  -H 'Content-Type: application/json' -d '{"contractId":"orders-contract","targetStage":"STAGE"}'</code></pre>
+# Migrate a record from v1 to v2 (JSONata transform adds currency field)
+curl -X POST .../contract/migrate -d '{"fromVersion":"1","toVersion":"2","record":{...}}'
+
+# Search for contracts, get audit trail
+curl /apis/registry/v3/search/contracts?status=STABLE
+curl .../contract/audit?offset=0&limit=5
+
+# Set global rules (apply to all artifacts)
+curl -X PUT /apis/registry/v3/admin/contracts/ruleset -d '{"domainRules":[...]}'</code></pre>
 <div class="speaker-notes">
-<strong>Speaker notes:</strong> Walk through the complete user journey. A developer creates an Avro schema with PII tags on sensitive fields. Then they write an ODCS contract YAML defining ownership, quality rules (totalAmount > 0), and SLA. They submit the contract — the registry projects labels, CEL rules, and field tags onto the schema artifact. Now they can validate data records against the rules via the execute endpoint. When the quality score is high enough and the team is confident, they promote from DEV to STAGE to PROD. At any point, the contract can be exported back as ODCS YAML for use with datacontract-cli or other tools. Every step uses the REST API — no feature flags needed, contracts are opt-in by nature.
+<strong>Speaker notes:</strong> The full demo walks through all 8 phases in 15 steps. The Java SDK demo in examples/odcs-data-contracts does everything programmatically. Steps 1-7 cover the original lifecycle (schema creation, ODCS submission, inspection, quality, promotion). Steps 8-9 demonstrate CEL rule execution. Steps 10-11 show schema migration with JSONata transforms — registering a v2 schema that adds a currency field, then migrating a v1 record to v2 format. Steps 12-13 demonstrate integration features: searching contracts across artifacts and viewing the audit trail. Step 14 sets organization-wide global rules. The UI shows all of this visually on the Contract tab.
 </div>
 </div>
 
