@@ -107,15 +107,17 @@ public abstract class AbstractDeserializer<T, U> implements AutoCloseable {
 
         SchemaLookupResult<T> schema = resolve(topic, data, artifactReference);
 
-        if (contractRulesEnabled) {
-            executeContractRulesForRead(schema);
-        }
-
         // Could this be replaced by buffer.limit() - buffer.position(); ?
         int length = buffer.limit() - 1 - baseSerde.getIdHandler().idSize(artifactReference, buffer);
         int start = buffer.position() + buffer.arrayOffset();
 
-        return readData(schema.getParsedSchema(), buffer, start, length);
+        U result = readData(schema.getParsedSchema(), buffer, start, length);
+
+        if (contractRulesEnabled) {
+            executeContractRulesForRead(schema, result);
+        }
+
+        return result;
     }
 
     protected abstract U readData(ParsedSchema<T> schema, ByteBuffer buffer, int start, int length);
@@ -195,16 +197,32 @@ public abstract class AbstractDeserializer<T, U> implements AutoCloseable {
         this.fallbackArtifactProvider = fallbackArtifactProvider;
     }
 
-    private void executeContractRulesForRead(SchemaLookupResult<T> schema) {
+    @SuppressWarnings("unchecked")
+    private void executeContractRulesForRead(SchemaLookupResult<T> schema, U data) {
         try {
             var ref = schema.toArtifactReference();
             var facade = baseSerde.getClientFacade();
             if (facade == null) {
                 return;
             }
+            if (ref.getArtifactId() == null || ref.getArtifactId().isEmpty()) {
+                return;
+            }
+            java.util.Map<String, Object> recordMap = java.util.Map.of();
+            if (data != null) {
+                if (data instanceof java.util.Map) {
+                    recordMap = (java.util.Map<String, Object>) data;
+                } else {
+                    try {
+                        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                        recordMap = mapper.readValue(data.toString(), java.util.Map.class);
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
             var result = facade.executeContractRules(
                     ref.getGroupId(), ref.getArtifactId(), ref.getVersion(),
-                    "READ", java.util.Map.of());
+                    "READ", recordMap);
             if (result != null && !result.isPassed()) {
                 String msg = "Contract rule validation failed (READ): " + result.getViolations();
                 if (contractRulesFailOnError) {

@@ -408,21 +408,27 @@ public class OdcsDataContractsDemo {
                 props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
                 props.put("value.deserializer", "io.apicurio.registry.serde.avro.AvroKafkaDeserializer");
                 props.put("apicurio.registry.url", REGISTRY_URL);
-                props.put("apicurio.registry.artifact.group-id", GROUP_ID);
-                props.put("apicurio.registry.artifact.artifact-id", ARTIFACT_ID);
                 props.put("apicurio.registry.serde.contract-rules.enabled", "true");
-                props.put("apicurio.registry.serde.contract-rules.fail-on-error", "false");
+                props.put("apicurio.registry.serde.contract-rules.fail-on-error", "true");
 
                 var consumer = new org.apache.kafka.clients.consumer.KafkaConsumer<String, Object>(props);
                 consumer.subscribe(java.util.Collections.singletonList(topic));
                 int totalConsumed = 0;
                 for (int attempt = 0; attempt < 5; attempt++) {
-                    var records = consumer.poll(java.time.Duration.ofSeconds(5));
-                    for (var r : records) {
-                        System.out.println("   - Key: " + r.key() + ", Value: " + r.value());
-                        totalConsumed++;
+                    try {
+                        var records = consumer.poll(java.time.Duration.ofSeconds(5));
+                        for (var r : records) {
+                            System.out.println("   - Key: " + r.key() + ", Value: " + r.value());
+                            totalConsumed++;
+                        }
+                        if (totalConsumed > 0) break;
+                    } catch (Exception e) {
+                        System.out.println("   Consumer error (attempt " + (attempt + 1) + "): " + e.getMessage());
+                        Throwable cause = e;
+                        while (cause.getCause() != null) cause = cause.getCause();
+                        System.out.println("   Root cause: " + cause.getClass().getName() + ": " + cause.getMessage());
+                        break;
                     }
-                    if (totalConsumed > 0) break;
                 }
                 System.out.println("   Consumed " + totalConsumed + " message(s)");
                 consumer.close();

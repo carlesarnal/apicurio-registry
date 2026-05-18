@@ -168,6 +168,9 @@ public abstract class AbstractSerializer<T, U> implements AutoCloseable {
             if (facade == null) {
                 return;
             }
+            if (ref.getArtifactId() == null || ref.getArtifactId().isEmpty()) {
+                return;
+            }
             Map<String, Object> recordMap = dataToMap(data);
             var result = facade.executeContractRules(
                     ref.getGroupId(), ref.getArtifactId(), ref.getVersion(),
