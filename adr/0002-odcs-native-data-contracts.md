@@ -88,7 +88,7 @@ The `contracts-rules` Maven module (`apicurio-registry-contracts-rules`) provide
 
 ### Concurrency control
 
-The projection engine uses a per-artifact `synchronized` lock (via `ConcurrentHashMap`) to prevent concurrent projections from corrupting labels on the same schema artifact.
+Label writes use atomic `mergeArtifactLabels`/`mergeVersionLabels` operations scoped to a prefix. In KafkaSQL mode, these operations are routed through the Kafka journal like all other writes, ensuring multi-node consistency.
 
 ### Unknown ODCS fields preservation
 
@@ -145,13 +145,11 @@ Extract the contract rule execution engine to a separate `contracts-rules` modul
 
 Multiple contracts can now coexist on the same schema artifact without overwriting each other. Each projection only strips/replaces its own namespaced data.
 
-### L2: Multi-node KafkaSQL eventual consistency
+### L2: Multi-node KafkaSQL consistency — RESOLVED
 
-The projection engine performs read-modify-write on schema artifact labels. The per-artifact `synchronized` lock prevents corruption on a single JVM, but in multi-node KafkaSQL deployments, concurrent projections from different nodes can race.
+~~The projection engine performs read-modify-write on schema artifact labels, causing eventual consistency in KafkaSQL.~~
 
-**Impact:** Low — contract submissions targeting the same schema from different nodes simultaneously is unlikely in practice.
-
-**Mitigation:** The ODCS contract YAML (stored as an artifact) is the source of truth. Re-submitting the contract corrects the projected state. For strict consistency, use the SQL storage variant.
+**Resolution:** `mergeArtifactLabels` and `mergeVersionLabels` now have dedicated KafkaSQL messages (`MergeArtifactLabels4Message`, `MergeVersionLabels5Message`). All label writes go through the Kafka journal, ensuring the same consistency guarantees as other storage operations.
 
 ### L3: Dual storage divergence — PARTIALLY RESOLVED
 
@@ -181,15 +179,13 @@ The ODCS YAML exists as an artifact AND its contents are projected as labels/rul
 - Zero new storage tables — reuses existing label and rule infrastructure
 - Works across all storage variants (SQL, KafkaSQL, GitOps, KubernetesOps)
 - `datacontract-cli` and other ODCS tooling can interoperate via the REST API
-- Feature-gated behind `apicurio.contracts.enabled` (experimental) — no risk to existing users
+- Always available — contracts are opt-in by nature (submitting a contract is an explicit action), so no feature gate is needed
 - Existing Phase 1 contract metadata/rules continue to work unchanged
 
 ### Negative
 
 - Dual storage (ODCS artifact + projected labels) adds complexity
-- 1:1 contract-to-schema limitation constrains multi-team governance
-- Multi-node KafkaSQL consistency is eventual, not strict
-- ODCS model coverage is partial (core sections only)
+- ODCS model coverage is partial (core sections only, extended via @JsonAnySetter)
 
 ### Neutral
 

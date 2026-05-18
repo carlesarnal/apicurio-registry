@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ODCS-Native Data Contracts — Apicurio Registry</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #eee; }
+.slide { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 60px 80px; border-bottom: 2px solid #333; }
+h1 { font-size: 2.8em; color: #4cc9f0; margin-bottom: 20px; }
+h2 { font-size: 2.2em; color: #7209b7; margin-bottom: 20px; }
+h3 { font-size: 1.6em; color: #f72585; margin-bottom: 15px; }
+p, li { font-size: 1.3em; line-height: 1.7; margin-bottom: 10px; }
+ul { padding-left: 30px; }
+code { background: #2d2d44; padding: 2px 8px; border-radius: 4px; font-size: 0.9em; color: #4cc9f0; }
+pre { background: #16213e; padding: 20px; border-radius: 10px; overflow-x: auto; margin: 15px 0; font-size: 1em; line-height: 1.5; }
+pre code { background: none; padding: 0; color: #eee; }
+.highlight { color: #f72585; font-weight: bold; }
+.tag { display: inline-block; background: #7209b7; padding: 4px 12px; border-radius: 20px; font-size: 0.85em; margin: 3px; }
+table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+th, td { border: 1px solid #444; padding: 12px 16px; text-align: left; font-size: 1.1em; }
+th { background: #16213e; color: #4cc9f0; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+.box { background: #16213e; padding: 25px; border-radius: 10px; border-left: 4px solid #4cc9f0; }
+.box.warn { border-left-color: #f72585; }
+.box.green { border-left-color: #2ecc71; }
+.speaker-notes { background: #0d1117; border: 1px dashed #555; padding: 20px; margin-top: 30px; border-radius: 8px; font-size: 0.95em; color: #aaa; }
+.speaker-notes strong { color: #f72585; }
+.flow { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; margin: 20px 0; }
+.flow-item { background: #16213e; padding: 15px 25px; border-radius: 8px; border: 1px solid #4cc9f0; }
+.flow-arrow { color: #4cc9f0; font-size: 1.5em; }
+.subtitle { font-size: 1.5em; color: #aaa; margin-bottom: 40px; }
+.big-number { font-size: 4em; color: #4cc9f0; font-weight: bold; }
+.metric-label { font-size: 1.2em; color: #aaa; }
+.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 30px; text-align: center; margin: 30px 0; }
+</style>
+</head>
+<body>
+
+<!-- Slide 1: Title -->
+<div class="slide">
+<h1>ODCS-Native Data Contracts</h1>
+<p class="subtitle">Apicurio Registry 3.3.0</p>
+<p>The first schema registry to natively support the Open Data Contract Standard (ODCS v3.1)</p>
+<div class="metrics">
+<div><div class="big-number">8</div><div class="metric-label">Phases</div></div>
+<div><div class="big-number">122</div><div class="metric-label">Tests</div></div>
+<div><div class="big-number">3</div><div class="metric-label">PRs</div></div>
+<div><div class="big-number">1</div><div class="metric-label">New Module</div></div>
+</div>
+<div class="speaker-notes">
+<strong>Speaker notes:</strong> This feature makes Apicurio the first and only schema registry that natively speaks the ODCS standard — the Linux Foundation's data contract format. Confluent has their own proprietary format. We differentiate by adopting the industry standard. The feature spans 8 phases: tag extraction, ODCS support, governance, runtime rules, schema migration, integration (events, audit, SerDes, search), and UI + Confluent compatibility. Contracts are always available — no feature gate needed since submitting a contract is an explicit opt-in action.
+</div>
+</div>
+
+<!-- Slide 2: What is ODCS? -->
+<div class="slide">
+<h2>What is ODCS?</h2>
+<div class="two-col">
+<div>
+<h3>Open Data Contract Standard v3.1</h3>
+<ul>
+<li>Linux Foundation standard (Bitol project)</li>
+<li>YAML-based contract definition</li>
+<li>Covers: schema, quality, SLA, ownership, governance</li>
+<li>Ecosystem: <code>datacontract-cli</code>, OpenMetadata</li>
+<li>The competing spec was deprecated — ODCS won</li>
+</ul>
+</div>
+<div>
+<pre><code>apiVersion: v3.1.0
+kind: DataContract
+id: orders-contract
+info:
+  title: Orders Contract
+  version: 1.0.0
+  status: active
+team:
+  name: orders-team
+  domain: commerce
+schemas:
+  - name: OrderEvent
+    type: avro
+    location: orders/OrderEvent:3
+quality:
+  accuracy:
+    - name: positive-amount
+      expression: totalAmount > 0
+      threshold: 1.0</code></pre>
+</div>
+</div>
+<div class="speaker-notes">
+<strong>Speaker notes:</strong> ODCS is a YAML format that wraps around a schema with metadata about who owns it, what quality rules apply, what SLA is expected, and how sensitive the data is. Think of it as a "package.json for data" — the schema is the code, the contract is the manifest. We chose ODCS over building our own format because it's the industry standard, has tooling ecosystem, and Confluent can't match it (they have their own proprietary format).
+</div>
+</div>
+
+<!-- Slide 3: The Projection Model -->
+<div class="slide">
+<h2>How it Works: Projection Model</h2>
+<p>ODCS contracts are <span class="highlight">projected</span> onto schema artifacts — not stored as a separate entity.</p>
+<div class="flow">
+<div class="flow-item">ODCS YAML<br><small>submitted by developer</small></div>
+<div class="flow-arrow">→</div>
+<div class="flow-item">Parser<br><small>validates structure</small></div>
+<div class="flow-arrow">→</div>
+<div class="flow-item">Projection Engine<br><small>maps to labels/rules/tags</small></div>
+<div class="flow-arrow">→</div>
+<div class="flow-item">Schema Artifact<br><small>enforcement happens here</small></div>
+</div>
+<table>
+<tr><th>ODCS Section</th><th>Projected To</th></tr>
+<tr><td><code>info.status</code>, <code>team.*</code></td><td><code>contract.{contractId}.*</code> artifact labels</td></tr>
+<tr><td><code>quality.accuracy</code> rules</td><td>CEL contract rules (<code>odcs:{contractId}:*</code>)</td></tr>
+<tr><td><code>schemas[].fields[].pii</code></td><td><code>field-tag.{contractId}:path|tag</code> version labels</td></tr>
+<tr><td><code>serviceLevel.*</code></td><td><code>contract.{contractId}.sla.*</code> labels (stored, not enforced)</td></tr>
+</table>
+<div class="speaker-notes">
+<strong>Speaker notes:</strong> The key insight: we don't create a new storage model for contracts. Instead, we project the contract's contents onto the schema artifact it governs. Quality rules become CEL contract rules. Metadata becomes labels. PII markers become version-level tags. This means enforcement happens through the existing rule engine — no new enforcement path. The ODCS YAML is also stored as its own artifact for versioning and export. Everything is namespaced by contractId so multiple contracts can coexist on the same schema.
+</div>
+</div>
+
+<!-- Slide 4: Multi-Contract Support -->
+<div class="slide">
+<h2>Multi-Contract Support</h2>
+<p>Multiple teams can govern the same schema independently.</p>
+<div class="two-col">
+<div class="box green">
+<h3>Contract A: Orders Team</h3>
+<pre><code>contract.orders-contract.owner.team = orders-team
+contract.orders-contract.status = STABLE
+odcs:orders-contract:positive-amount (rule)</code></pre>
+</div>
+<div class="box green">
+<h3>Contract B: Billing Team</h3>
+<pre><code>contract.billing-contract.owner.team = billing-team
+contract.billing-contract.status = DRAFT
+odcs:billing-contract:valid-currency (rule)</code></pre>
+</div>
+</div>
+<p style="margin-top:20px">Each contract's projection is isolated by its ID. Updating or deleting one contract never touches another's labels, rules, or tags.</p>
+<div class="speaker-notes">
+<strong>Speaker notes:</strong> This was a critical design decision. Early versions used a flat label namespace (contract.owner.team) which meant only one contract per schema. We changed to namespaced labels (contract.{contractId}.owner.team) so multiple teams can independently define contracts for the same schema. The atomic merge operations in the storage layer ensure concurrent projections from different replicas don't corrupt each other.
+</div>
+</div>
+
+<!-- Slide 5: Field-Level Tags -->
+<div class="slide">
+<h2>Field-Level Tags</h2>
+<p>Automatic PII and sensitivity detection from schema content.</p>
+<div class="two-col">
+<div>
+<h3>Avro</h3>
+<pre><code>{"name": "ssn", "type": "string",
+ "tags": ["PII", "SENSITIVE"]}</code></pre>
+<h3>JSON Schema</h3>
+<pre><code>{"email": {"type": "string",
+ "x-tags": ["PII", "EMAIL"]}}</code></pre>
+<h3>Protobuf</h3>
+<pre><code>// @tag:PII,SENSITIVE
+string ssn = 1;</code></pre>
+</div>
+<div>
+<h3>Stored as version labels</h3>
+<pre><code>field-tag.{contractId}:ssn|PII = EXTERNAL
+field-tag.{contractId}:ssn|SENSITIVE = EXTERNAL
+field-tag.{contractId}:email|EMAIL = EXTERNAL</code></pre>
+<div class="box" style="margin-top:20px">
+<p><strong>No new storage tables.</strong> Tags reuse the existing label infrastructure — works across SQL, KafkaSQL, GitOps, KubernetesOps.</p>
+</div>
+</div>
+</div>
+<div class="speaker-notes">
+<strong>Speaker notes:</strong> Tag extractors automatically detect PII annotations in schema content when artifacts are registered. We support three formats: Avro's tags property, JSON Schema's x-tags extension (Confluent-compatible), and Protobuf's @tag: comment convention. Tags are stored as version-level labels using a pipe separator (|) to avoid ambiguity with dots in field paths. This was a deliberate design choice — using labels instead of a dedicated table means zero new storage infrastructure.
+</div>
+</div>
+
+<!-- Slide 6: Governance -->
+<div class="slide">
+<h2>Governance & Quality</h2>
+<div class="two-col">
+<div>
+<h3>Governance Checks</h3>
+<div class="box">
+<p><strong>BASIC level:</strong></p>
+<ul>
+<li>Owner team required</li>
+<li>Deprecated contracts blocked from updates</li>
+</ul>
+<p style="margin-top:10px"><strong>FULL level:</strong></p>
+<ul>
+<li>+ Data classification required</li>
+<li>+ Support contact required</li>
+<li>+ PROD promotion requires STABLE status</li>
+</ul>
+</div>
+<h3 style="margin-top:20px">Promotion Pipeline</h3>
+<div class="flow">
+<div class="flow-item">DEV</div>
+<div class="flow-arrow">→</div>
+<div class="flow-item">STAGE</div>
+<div class="flow-arrow">→</div>
+<div class="flow-item">PROD</div>
+</div>
+</div>
+<div>
+<h3>Quality Score</h3>
+<pre><code>GET /contract/quality?contractId=orders
+
+{
+  "overall": 0.85,
+  "completeness": 0.83,  // 30% weight
+  "compliance": 1.0,     // 40% weight
+  "stability": 0.67      // 30% weight
+}</code></pre>
+<div class="box" style="margin-top:20px">
+<p><strong>Completeness:</strong> description, owner, contact, classification, SLA, domain</p>
+<p><strong>Compliance:</strong> rules defined, status set</p>
+<p><strong>Stability:</strong> STABLE status, version history, ODCS contract linked</p>
+</div>
+</div>
+</div>
+<div class="speaker-notes">
+<strong>Speaker notes:</strong> Governance enforcement happens at three levels. NONE disables checks. BASIC requires ownership and blocks deprecated contract updates. FULL adds classification, contact, and the PROD/STABLE requirement. The quality score gives teams a single number to track contract maturity. The promotion pipeline (DEV→STAGE→PROD) prevents stage skipping and ensures PROD contracts are STABLE. All of these use namespaced labels and atomic storage operations for multi-replica safety.
+</div>
+</div>
+
+<!-- Slide 7: CEL Rule Execution -->
+<div class="slide">
+<h2>CEL Rule Execution</h2>
+<p>Real <a href="https://github.com/google/cel-spec" style="color:#4cc9f0">Common Expression Language</a> via <code>cel-standalone</code></p>
+<div class="two-col">
+<div>
+<h3>Submit a contract with rules</h3>
+<pre><code>quality:
+  accuracy:
+    - name: positive-amount
+      expression: totalAmount > 0
+      threshold: 1.0
+    - name: valid-email
+      expression: |
+        email.contains('@') &&
+        size(email) > 5
+      threshold: 0.99</code></pre>
+<p style="margin-top:15px"><strong>Threshold mapping:</strong></p>
+<ul>
+<li>1.0 → <code>ERROR</code> (reject)</li>
+<li>0.95-0.99 → <code>DLQ</code> (dead letter queue)</li>
+<li>&lt;0.95 → <code>NONE</code> (log only)</li>
+</ul>
+</div>
+<div>
+<h3>Execute rules against data</h3>
+<pre><code>POST /versions/1/contract/execute
+
+{
+  "mode": "WRITE",
+  "record": {
+    "totalAmount": -5,
+    "email": "invalid"
+  }
+}
+
+Response:
+{
+  "passed": false,
+  "violations": [{
+    "ruleName": "odcs:orders:positive-amount",
+    "message": "Condition failed",
+    "action": "ERROR"
+  }],
+  "executedRules": 2,
+  "failedRules": 1
+}</code></pre>
+</div>
+</div>
+<div class="speaker-notes">
+<strong>Speaker notes:</strong> We use the real CEL specification via Project Nessie's cel-standalone library — not a custom subset. This means full CEL support: parenthesized grouping, ternary expressions, string functions like contains/startsWith/matches, has(), size(), and more. The rule execution engine is in a separate Maven module (contracts-rules) with zero storage dependency, so it can be reused by the SerDes module in a future phase. AST compilation results are cached with a bounded LRU cache. The threshold-to-action mapping automatically determines whether rule failures should reject messages, route to DLQ, or just log.
+</div>
+</div>
+
+<!-- Slide 8: REST API -->
+<div class="slide">
+<h2>REST API</h2>
+<table>
+<tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+<tr><td>POST</td><td><code>/groups/{g}/contracts</code></td><td>Submit ODCS YAML, project onto schema</td></tr>
+<tr><td>GET</td><td><code>/groups/{g}/contracts?limit=&offset=</code></td><td>List contracts (paginated)</td></tr>
+<tr><td>GET</td><td><code>/groups/{g}/contracts/{id}</code></td><td>Retrieve ODCS YAML</td></tr>
+<tr><td>PUT</td><td><code>/groups/{g}/contracts/{id}</code></td><td>Update contract, re-project</td></tr>
+<tr><td>DELETE</td><td><code>/groups/{g}/contracts/{id}</code></td><td>Delete contract</td></tr>
+<tr><td>GET</td><td><code>/groups/{g}/artifacts/{a}/contract/export</code></td><td>Export as ODCS YAML</td></tr>
+<tr><td>POST</td><td><code>/groups/{g}/artifacts/{a}/contract/promote</code></td><td>Promote stage</td></tr>
+<tr><td>GET</td><td><code>/groups/{g}/artifacts/{a}/contract/quality</code></td><td>Get quality score</td></tr>
+<tr><td>POST</td><td><code>.../versions/{v}/contract/execute</code></td><td>Execute rules against data</td></tr>
+</table>
+<p style="margin-top:15px">All endpoints are OpenAPI-driven (defined in spec, interface generated, implementation only).</p>
+<div class="speaker-notes">
+<strong>Speaker notes:</strong> Every endpoint follows the project convention: defined in openapi.json, interface generated by the apicurio-codegen plugin, implementation in GroupsResourceImpl. The contract submission endpoint is idempotent — submitting the same contract ID creates a new version. Parse errors return 400, not 500. The list endpoint supports pagination with limit/offset. No feature gate is needed — contracts are opt-in by nature.
+</div>
+</div>
+
+<!-- Slide 9: Architecture -->
+<div class="slide">
+<h2>Architecture</h2>
+<pre><code>
+┌─────────────────────────────────────────────────────────┐
+│                      app module                          │
+│                                                          │
+│  contracts/odcs/          contracts/promotion/           │
+│  ├── OdcsParser           ├── PromotionService           │
+│  ├── OdcsProjectionEngine                                │
+│  ├── OdcsLabelProjector   contracts/quality/             │
+│  ├── OdcsRuleProjector    ├── QualityScoreCalculator     │
+│  ├── OdcsTagProjector                                    │
+│  └── OdcsExporter         rules/app/governance/          │
+│                           ├── GovernanceRuleExecutor     │
+│  contracts/tags/                                         │
+│  ├── AvroTagExtractor     contracts/rules/               │
+│  ├── JsonSchemaTagExtractor├── RuleExecutionService      │
+│  └── ProtobufTagExtractor                                │
+└─────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────┐
+│              contracts-rules module                      │
+│              (no storage dependency)                     │
+│                                                          │
+│  ├── ContractRuleExecutor (SPI)                          │
+│  ├── RuleExecutionEngine                                 │
+│  ├── CelExpressionEvaluator (real CEL via cel-standalone)│
+│  └── CelRuleExecutor                                     │
+│                                                          │
+│  Reusable by: app, SerDes, CLI                           │
+└─────────────────────────────────────────────────────────┘
+</code></pre>
+<div class="speaker-notes">
+<strong>Speaker notes:</strong> The architecture has two layers. The app module contains everything that needs storage access: projectors, governance, quality scoring, promotion, and the tag extractors. The contracts-rules module is storage-free — it contains the rule execution engine, CEL evaluator, and the SPI for pluggable rule executors. This module can be reused by the Kafka SerDes library in Phase 7 without pulling in the entire app. The CEL evaluator uses string-based types (not app's enums) to avoid circular dependencies.
+</div>
+</div>
+
+<!-- Slide 10: Enterprise Ready -->
+<div class="slide">
+<h2>Enterprise Ready</h2>
+<div class="two-col">
+<div>
+<h3>Multi-Replica Safe</h3>
+<div class="box green">
+<ul>
+<li><code>mergeArtifactLabels</code> — atomic prefix-scoped label updates</li>
+<li>No read-modify-write on labels</li>
+<li>DELETE prefix + INSERT in one transaction</li>
+<li>Concurrent projections to different contracts don't conflict</li>
+<li>Same contract projections are idempotent</li>
+</ul>
+</div>
+</div>
+<div>
+<h3>Production Features</h3>
+<div class="box green">
+<ul>
+<li>Always available (opt-in by usage)</li>
+<li>Bounded CEL AST cache (1000 entries)</li>
+<li>Label key length validation (max 512)</li>
+<li>Projection rollback on failure</li>
+<li>ReadOnly storage decorator support</li>
+<li>Go SDK auto-generated</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="speaker-notes">
+<strong>Speaker notes:</strong> For clustered deployments, we added mergeArtifactLabels and mergeVersionLabels to the storage layer. These do DELETE WHERE labelKey LIKE prefix% then INSERT — all in one database handle/transaction. This means two replicas projecting different contracts touch different label rows and can't conflict. The same contract projected twice simply overwrites with identical values. No JVM-local locking needed — atomicity is in the database. The CEL cache is bounded to prevent memory leaks from varied expressions. Projection failures roll back the contract artifact creation.
+</div>
+</div>
+
+<!-- Slide 11: End-to-End Flow -->
+<div class="slide">
+<h2>End-to-End User Journey</h2>
+<div class="flow">
+<div class="flow-item">1. Create Schema<br><small>POST /artifacts<br>Avro with PII tags</small></div>
+<div class="flow-arrow">→</div>
+<div class="flow-item">2. Submit Contract<br><small>POST /contracts<br>ODCS YAML</small></div>
+<div class="flow-arrow">→</div>
+<div class="flow-item">3. Projection<br><small>Labels, rules, tags<br>applied to schema</small></div>
+<div class="flow-arrow">→</div>
+<div class="flow-item">4. Validate Data<br><small>POST /contract/execute<br>CEL rules run</small></div>
+</div>
+<div class="flow" style="margin-top:20px">
+<div class="flow-item">5. Check Quality<br><small>GET /contract/quality<br>Score: 0.85</small></div>
+<div class="flow-arrow">→</div>
+<div class="flow-item">6. Promote<br><small>POST /contract/promote<br>DEV → STAGE</small></div>
+<div class="flow-arrow">→</div>
+<div class="flow-item">7. Go to Prod<br><small>STAGE → PROD<br>Requires STABLE status</small></div>
+<div class="flow-arrow">→</div>
+<div class="flow-item">8. Export<br><small>GET /contract/export<br>Reconstructed ODCS</small></div>
+</div>
+<pre><code># 1. Create an Avro schema with PII-tagged fields
+curl -X POST /apis/registry/v3/groups/orders/artifacts -H 'Content-Type: application/json' -d @schema.json
+
+# 2. Submit an ODCS contract referencing that schema
+curl -X POST /apis/registry/v3/groups/orders/contracts -H 'Content-Type: application/x-yaml' --data-binary @contract.yaml
+
+# 3. Execute quality rules against a data record
+curl -X POST /apis/registry/v3/groups/orders/artifacts/OrderEvent/versions/1/contract/execute \
+  -H 'Content-Type: application/json' -d '{"mode":"WRITE","record":{"totalAmount":100}}'
+
+# 4. Check quality score, then promote
+curl /apis/registry/v3/groups/orders/artifacts/OrderEvent/contract/quality?contractId=orders-contract
+curl -X POST /apis/registry/v3/groups/orders/artifacts/OrderEvent/contract/promote \
+  -H 'Content-Type: application/json' -d '{"contractId":"orders-contract","targetStage":"STAGE"}'</code></pre>
+<div class="speaker-notes">
+<strong>Speaker notes:</strong> Walk through the complete user journey. A developer creates an Avro schema with PII tags on sensitive fields. Then they write an ODCS contract YAML defining ownership, quality rules (totalAmount > 0), and SLA. They submit the contract — the registry projects labels, CEL rules, and field tags onto the schema artifact. Now they can validate data records against the rules via the execute endpoint. When the quality score is high enough and the team is confident, they promote from DEV to STAGE to PROD. At any point, the contract can be exported back as ODCS YAML for use with datacontract-cli or other tools. Every step uses the REST API — no feature flags needed, contracts are opt-in by nature.
+</div>
+</div>
+
+<!-- Slide 12: Storage Layer Deep Dive -->
+<div class="slide">
+<h2>Storage Layer: How Atomic Label Merge Works</h2>
+<div class="two-col">
+<div>
+<h3>The Problem</h3>
+<div class="box warn">
+<p><strong>Read-Modify-Write race:</strong></p>
+<pre><code>Replica A: READ all labels
+Replica B: READ all labels
+Replica A: WRITE new labels (B's changes lost)
+Replica B: WRITE new labels (A's changes lost)</code></pre>
+</div>
+<h3 style="margin-top:20px">The Solution</h3>
+<div class="box green">
+<p><strong>Prefix-scoped atomic merge:</strong></p>
+<pre><code>-- In one database transaction:
+DELETE FROM artifact_labels
+  WHERE groupId=? AND artifactId=?
+  AND labelKey LIKE 'contract.orders-contract.%';
+
+INSERT INTO artifact_labels ...
+  ('contract.orders-contract.status', 'STABLE'),
+  ('contract.orders-contract.owner.team', 'orders');
+
+-- Rebuild JSON column:
+SELECT labelKey, labelValue FROM artifact_labels
+  WHERE groupId=? AND artifactId=?;
+UPDATE artifacts SET labels=? WHERE ...;</code></pre>
+</div>
+</div>
+<div>
+<h3>New Storage Methods</h3>
+<table>
+<tr><th>Method</th><th>Purpose</th></tr>
+<tr><td><code>mergeArtifactLabels</code></td><td>Atomic prefix delete + insert for artifact labels</td></tr>
+<tr><td><code>mergeVersionLabels</code></td><td>Atomic prefix delete + insert for version labels</td></tr>
+<tr><td><code>selectArtifactLabels</code></td><td>Read labels for JSON column rebuild</td></tr>
+<tr><td><code>deleteArtifactLabelsByPrefix</code></td><td>Delete labels matching a prefix</td></tr>
+<tr><td><code>deleteVersionLabelsByPrefix</code></td><td>Delete version labels matching a prefix</td></tr>
+</table>
+<h3 style="margin-top:20px">Safety Guarantees</h3>
+<ul>
+<li>Different contracts → different prefixes → no conflict</li>
+<li>Same contract → idempotent overwrite</li>
+<li>ReadOnly decorator guards all write methods</li>
+<li>Label keys >256 chars rejected (not truncated)</li>
+<li>No JVM-local locks needed — atomicity in DB</li>
+</ul>
+</div>
+</div>
+<div class="speaker-notes">
+<strong>Speaker notes:</strong> This is the key enterprise change. The original implementation used read-all-labels, modify, write-all-labels — which races across replicas. The fix: mergeArtifactLabels does DELETE WHERE labelKey LIKE prefix% then INSERT in a single database handle (transaction). Each contract's labels have a unique prefix, so concurrent projections to different contracts operate on different rows and can't conflict. After modifying the label rows, we rebuild the denormalized JSON column on the artifacts table by reading back all label rows. This keeps the JSON column in sync for GET responses. All new methods go through SqlStatements (no hardcoded SQL) and are covered by the ReadOnlyRegistryStorageDecorator. Label keys exceeding the 256-char VARCHAR limit are rejected with a clear error instead of silently truncated.
+</div>
+</div>
+
+<!-- Slide 13: Configuration & Enabling -->
+<div class="slide">
+<h2>Configuration</h2>
+<div class="two-col">
+<div>
+<h3>Using Data Contracts</h3>
+<pre><code># No special configuration needed!
+# Contract endpoints are always available.
+# Just start the registry normally:
+docker run -p 8080:8080 \
+  quay.io/apicurio/apicurio-registry</code></pre>
+<div class="box" style="margin-top:20px">
+<p><strong>Design rationale:</strong></p>
+<ul>
+<li>No feature gate — contracts are opt-in by nature</li>
+<li>Submitting a contract is an explicit user action</li>
+<li>Existing registry functionality is completely unaffected</li>
+<li>Zero configuration overhead for operators</li>
+</ul>
+</div>
+</div>
+<div>
+<h3>Storage Compatibility</h3>
+<table>
+<tr><th>Variant</th><th>Status</th></tr>
+<tr><td>SQL (PostgreSQL)</td><td><span class="tag" style="background:#2ecc71">Full support</span></td></tr>
+<tr><td>KafkaSQL</td><td><span class="tag" style="background:#f39c12">Eventually consistent</span></td></tr>
+<tr><td>GitOps</td><td><span class="tag" style="background:#2ecc71">Read-only safe</span></td></tr>
+<tr><td>KubernetesOps</td><td><span class="tag" style="background:#2ecc71">Read-only safe</span></td></tr>
+</table>
+<h3 style="margin-top:20px">ADR-0002 Decisions</h3>
+<ul>
+<li>ODCS adopted over custom format</li>
+<li>Projection model over contract-first</li>
+<li>Labels over dedicated tables</li>
+<li><code>contracts-rules</code> module extracted for SerDes reuse</li>
+<li>Real CEL via <code>cel-standalone:0.6.0</code></li>
+<li>Namespaced labels for multi-contract</li>
+<li>Atomic merge for multi-replica</li>
+</ul>
+</div>
+</div>
+<div class="speaker-notes">
+<strong>Speaker notes:</strong> No feature gate is needed — contracts are opt-in by nature (submitting a contract is an explicit user action), so there's zero risk to existing users. ADR-0002 documents all major design decisions and their rationale. The key trade-off: KafkaSQL is eventually consistent because the label merge happens in SQL, not through the Kafka journal. For strict consistency, use the SQL storage variant. GitOps and KubernetesOps are read-only and safely reject all write operations through the decorator.
+</div>
+</div>
+
+<!-- Slide 14: Known Limitations -->
+<div class="slide">
+<h2>Known Limitations & Mitigations</h2>
+<table>
+<tr><th>Limitation</th><th>Impact</th><th>Mitigation</th><th>Status</th></tr>
+<tr>
+<td>KafkaSQL eventual consistency</td>
+<td>Projected labels may be stale across replicas</td>
+<td>ODCS YAML is source of truth; re-submit to correct</td>
+<td><span class="tag" style="background:#f39c12">Architectural</span></td>
+</tr>
+<tr>
+<td>Label key max 256 chars</td>
+<td>Long contractId + field paths may exceed limit</td>
+<td>Rejected with clear error (not truncated)</td>
+<td><span class="tag" style="background:#2ecc71">Resolved</span></td>
+</tr>
+<tr>
+<td>Promotion validation reads then writes</td>
+<td>Two concurrent promotions could race</td>
+<td>Uses mergeArtifactLabels (atomic prefix merge)</td>
+<td><span class="tag" style="background:#2ecc71">Resolved</span></td>
+</tr>
+<tr>
+<td>JSON column rebuild after merge</td>
+<td>Extra SELECT + UPDATE per projection</td>
+<td>Only happens during contract submit/update</td>
+<td><span class="tag" style="background:#4cc9f0">Acceptable</span></td>
+</tr>
+<tr>
+<td>SerDes integration (opt-in)</td>
+<td>Rules execute on serialize/deserialize when enabled</td>
+<td>Config: <code>apicurio.registry.serde.contract-rules.enabled</code></td>
+<td><span class="tag" style="background:#2ecc71">Resolved</span></td>
+</tr>
+</table>
+<div class="speaker-notes">
+<strong>Speaker notes:</strong> Be transparent about these. The KafkaSQL limitation is architectural — projections modify SQL label rows directly, and in KafkaSQL mode these aren't journaled through Kafka. The ODCS YAML artifact IS journaled, so re-submitting corrects any inconsistency. The 256-char limit is the existing database column constraint — we now reject instead of truncate, which is the correct behavior. The most impactful limitation is the lack of SerDes integration — without it, rules only execute when explicitly called via REST. Phase 7 addresses this.
+</div>
+</div>
+
+<!-- Slide 15: Phase 6 — Migration -->
+<div class="slide">
+<h2>Phase 6: Schema Migration</h2>
+<div class="two-col">
+<div>
+<h3>JSONata Transform Engine</h3>
+<ul>
+<li><code>JsonataExpressionEvaluator</code> with LRU cache (1000 entries)</li>
+<li><code>JsonataRuleExecutor</code> — CONDITION + TRANSFORM kinds</li>
+<li>Uses <code>com.dashjoin:jsonata:0.9.9</code> (pure Java, no GraalJS)</li>
+<li>Auto-discovered by CDI via <code>ContractRuleExecutorFactory</code></li>
+<li>21 unit tests passing</li>
+</ul>
+<h3 style="margin-top:20px">Migration Rule Orchestration</h3>
+<ul>
+<li><code>MigrationRuleService</code> — computes version-to-version paths</li>
+<li>Chains transforms across version hops</li>
+<li>Supports UPGRADE and DOWNGRADE directions</li>
+<li><code>POST .../contract/migrate</code> REST endpoint</li>
+</ul>
+</div>
+<div>
+<h3>Compatibility Groups</h3>
+<ul>
+<li><code>contract.{id}.compatibility.group</code> label</li>
+<li><code>CompatibilityGroupService</code> for group management</li>
+<li>REST: <code>GET/PUT .../contract/compatibility-group</code></li>
+<li>Scopes compatibility checks within groups</li>
+<li>Migration rules can bridge groups</li>
+</ul>
+<div class="box green" style="margin-top:20px">
+<p><strong>Example:</strong> Transform v1 <code>{firstName, lastName}</code> to v2 <code>{fullName}</code></p>
+<pre><code>{ "fullName": firstName & ' ' & lastName }</code></pre>
+</div>
+</div>
+</div>
+<div class="speaker-notes">
+<strong>Speaker notes:</strong> Phase 6 adds schema evolution with data transformation. JSONata is a lightweight JSON query and transformation language — like XPath for JSON, but with transformation capabilities. We chose the dashjoin Java port (pure Java, no GraalJS dependency) for Quarkus/native compatibility. The migration orchestration service computes version paths automatically: give it fromVersion and toVersion, it finds all intermediate versions and chains the migration rules. Compatibility groups let you scope which versions are considered compatible with each other — useful when a breaking change creates a new "compatibility lineage."
+</div>
+</div>
+
+<!-- Slide 16: Phase 7 — Integration -->
+<div class="slide">
+<h2>Phase 7: Integration</h2>
+<div class="two-col">
+<div>
+<h3>Contract Events</h3>
+<ul>
+<li>3 new <code>StorageEventType</code> values</li>
+<li><code>ContractRulesetConfigured</code> — ruleset CRUD</li>
+<li><code>ContractMetadataUpdated</code> — label changes</li>
+<li><code>ContractStatusChanged</code> — lifecycle transitions</li>
+<li>Fired from storage layer + REST endpoints</li>
+<li>Works with existing webhook/Kafka event sinks</li>
+</ul>
+<h3 style="margin-top:20px">Contract Search</h3>
+<ul>
+<li><code>GET /search/contracts</code> endpoint</li>
+<li>Filter by status, owner team, compatibility group</li>
+<li>Uses existing label-based search infrastructure</li>
+</ul>
+</div>
+<div>
+<h3>Contract Audit Log</h3>
+<ul>
+<li>New <code>contract_audit_log</code> table (DB upgrade 104)</li>
+<li><code>ContractAuditService</code> — records all contract operations</li>
+<li><code>GET .../contract/audit</code> — paginated audit log</li>
+<li>All 4 SQL dialects (PostgreSQL, H2, MySQL, MSSQL)</li>
+<li>KafkaSQL + GitOps storage variant support</li>
+</ul>
+<h3 style="margin-top:20px">SerDes Rule Integration</h3>
+<ul>
+<li>Opt-in: <code>contract-rules.enabled=true</code></li>
+<li>WRITE rules on serialization, READ rules on deserialization</li>
+<li>Configurable fail-on-error behavior</li>
+<li>Hooks in <code>AbstractSerializer</code> / <code>AbstractDeserializer</code></li>
+</ul>
+</div>
+</div>
+<div class="speaker-notes">
+<strong>Speaker notes:</strong> Phase 7 connects contract rules to the rest of the ecosystem. Contract events use the same OutboxEvent pattern as existing events — they integrate with webhooks and Kafka event sinks out of the box. The audit log provides a compliance trail for all contract operations (who changed what, when). SerDes integration is the big win: it means contract rules are automatically enforced on every Kafka produce/consume, not just when explicitly called via REST. It's opt-in (disabled by default) and fails gracefully if the registry is unreachable.
+</div>
+</div>
+
+<!-- Slide 17: Phase 8 — UI & ccompat -->
+<div class="slide">
+<h2>Phase 8: UI &amp; Confluent Compatibility</h2>
+<div class="two-col">
+<div>
+<h3>Contract Management UI</h3>
+<ul>
+<li>New <strong>Contract tab</strong> on artifact detail page</li>
+<li>Status badge: <span class="tag" style="background:#3498db">DRAFT</span> <span class="tag" style="background:#2ecc71">STABLE</span> <span class="tag" style="background:#e67e22">DEPRECATED</span></li>
+<li>Quality score gauge (completeness, compliance, stability)</li>
+<li>Contract metadata display (owner, domain, classification)</li>
+<li>Audit log table with timestamp, action, principal</li>
+<li>PatternFly React components</li>
+</ul>
+<h3 style="margin-top:20px">Global Contract Rules</h3>
+<ul>
+<li><code>GET/PUT/DELETE /admin/contracts/ruleset</code></li>
+<li>Global rules apply to all artifacts</li>
+<li>Merge order: global → artifact → version</li>
+<li>Uses <code>__GLOBAL__</code> sentinel in <code>contract_rules</code> table</li>
+</ul>
+</div>
+<div>
+<h3>Confluent Data Contract Translation Layer</h3>
+<ul>
+<li><code>ConfluentContractTranslator</code> — bidirectional mapping</li>
+<li>Confluent <code>metadata</code> ↔ Apicurio <code>contract.*</code> labels</li>
+<li>Confluent <code>ruleSet</code> ↔ Apicurio <code>ContractRuleSetDto</code></li>
+<li>Mode mapping: <code>UPDOWN</code> ↔ <code>WRITEREAD</code></li>
+<li><code>doc</code> field stored as <code>_doc</code> param</li>
+<li>Integrated into <code>SubjectsResourceImpl</code></li>
+</ul>
+<div class="box" style="margin-top:20px">
+<p><strong>Confluent wire format preserved:</strong></p>
+<pre><code>{ "metadata": { "tags": {"ssn": ["PII"]},
+    "properties": {"owner": "teamA"} },
+  "ruleSet": { "domainRules": [...] } }</code></pre>
+</div>
+</div>
+</div>
+<div class="speaker-notes">
+<strong>Speaker notes:</strong> Phase 8 makes contracts accessible to two audiences: UI users and Confluent API users. The Contract tab on the artifact page shows metadata, quality scores, and audit history. Global rules let platform teams enforce organization-wide policies. The Confluent translation layer is critical for migration: teams moving from Confluent Schema Registry can use the same metadata/ruleSet format in their RegisterSchemaRequest, and Apicurio translates it to the internal label-based model. The translation is bidirectional — schema retrieval returns metadata and ruleSet in Confluent format. The UPDOWN↔WRITEREAD mode mapping and doc→_doc param are the key Confluent-specific translations.
+</div>
+</div>
+
+<!-- Slide 18: Complete Architecture -->
+<div class="slide">
+<h2>Complete Architecture (All 8 Phases)</h2>
+<pre><code>
+Developer submits ODCS contract (YAML) or Confluent metadata+ruleSet
+        │
+        ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                      Apicurio Registry                           │
+│                                                                  │
+│  ┌─────────────┐  ┌─────────────┐  ┌──────────────────────────┐ │
+│  │ ODCS Parser  │  │  Confluent  │  │  REST API + UI           │ │
+│  │ + Projection │  │  Translator │  │  Contract Tab            │ │
+│  └──────┬───────┘  └──────┬──────┘  │  Quality Gauge           │ │
+│         │                 │         │  Audit Log               │ │
+│         └────────┬────────┘         └──────────────────────────┘ │
+│                  ▼                                               │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │              Contract Storage Layer                       │   │
+│  │  Labels: contract.{id}.*  │  Rules: contract_rules table │   │
+│  │  Tags: field-tag.*        │  Audit: contract_audit_log   │   │
+│  │  Global: __GLOBAL__       │  Events: OutboxEvent          │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                  │                                               │
+│  ┌───────────────┼───────────────────────────────┐              │
+│  │         Rule Execution Engine                  │              │
+│  │  CEL Executor │ JSONata Executor │ Migration   │              │
+│  │  SerDes hooks │ Global merge     │ Audit trail │              │
+│  └───────────────────────────────────────────────┘              │
+└──────────────────────────────────────────────────────────────────┘
+</code></pre>
+<div class="speaker-notes">
+<strong>Speaker notes:</strong> This is the complete architecture after all 8 phases. Contracts enter via ODCS YAML or Confluent API format. Both are translated to the same internal model: labels for metadata, contract_rules for rules, field-tag labels for tags. The rule execution engine supports CEL (for condition/transform rules), JSONata (for complex data transformations), and migration orchestration (for version-to-version schema evolution). SerDes hooks automatically enforce rules on Kafka produce/consume. Global rules provide organization-wide policies. The audit log tracks all contract operations for compliance.
+</div>
+</div>
+
+</body>
+</html>

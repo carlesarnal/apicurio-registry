@@ -21,7 +21,8 @@ import { GroupsService, useGroupsService } from "@services/useGroupsService.ts";
 import {
     ArtifactOverviewTabContent,
     ArtifactPageHeader,
-    ArtifactBranchesTabContent
+    ArtifactBranchesTabContent,
+    ArtifactContractTabContent
 } from "@app/pages/artifact/components";
 import {
     AddVersionToBranch,
@@ -75,6 +76,8 @@ export const ArtifactPage: FunctionComponent<PageProperties> = () => {
         activeTabKey = "rules";
     } else if (location.pathname.indexOf("/branches") !== -1) {
         activeTabKey = "branches";
+    } else if (location.pathname.indexOf("/contract") !== -1) {
+        activeTabKey = "contract";
     }
 
     const createLoaders = (): Promise<any>[] => {
@@ -386,6 +389,11 @@ export const ArtifactPage: FunctionComponent<PageProperties> = () => {
                 onCreateBranch={() => {setIsCreateBranchModalOpen(true);}}
                 onDeleteBranch={onDeleteBranch}
                 onViewBranch={onViewBranch}
+            />
+        </Tab>,
+        <Tab data-testid="artifact-contract-tab" eventKey="contract" title="Contract" key="contract" tabContentId="tab-contract">
+            <ArtifactContractTabContent
+                artifact={artifact as ArtifactMetaData}
             />
         </Tab>,
     ];
