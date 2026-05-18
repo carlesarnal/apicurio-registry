@@ -66,6 +66,9 @@ public class BaseSerde<T, U> implements AutoCloseable {
         }
         this.idHandler.configure(config.originals(), isKey);
         configureSchemaResolver(config.originals(), isKey, schemaParser);
+        if (this.clientFacade == null && this.schemaResolver != null) {
+            this.clientFacade = this.schemaResolver.getClientFacade();
+        }
     }
 
     private void configureSchemaResolver(Map<String, Object> configs, boolean isKey,

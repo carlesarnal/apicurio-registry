@@ -9,7 +9,13 @@
 .artifact-contract-tab-content .quality-scores {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 18px;
+}
+
+.artifact-contract-tab-content .quality-score-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .artifact-contract-tab-content .audit-table {

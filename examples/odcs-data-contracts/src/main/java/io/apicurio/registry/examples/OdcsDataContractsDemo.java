@@ -62,7 +62,12 @@ import java.util.stream.Collectors;
  *   12. Search contracts
  *   13. Get audit log
  *   14. Set global contract rules
- *   15. Clean up
+ *   15. Start embedded Kafka (Testcontainers)
+ *   16. Produce with contract rules — valid record (passes)
+ *   17. Produce with contract rules — invalid record (blocked)
+ *   18. Consume the valid message
+ *   19. Stop Kafka
+ *   20. Clean up
  */
 public class OdcsDataContractsDemo {
 
@@ -320,17 +325,125 @@ public class OdcsDataContractsDemo {
             System.out.println("   Retrieved: " + retrievedGlobal.getDomainRules().size()
                     + " domain rule(s)");
 
+            // ==================== SerDes Integration ====================
+
+            // Step 15: Start embedded Kafka
+            System.out.println("\n15. Starting embedded Kafka (Testcontainers)...");
+            var kafka = new org.testcontainers.kafka.KafkaContainer("apache/kafka:3.8.1");
+            kafka.start();
+            String bootstrapServers = kafka.getBootstrapServers();
+            System.out.println("   Kafka running at: " + bootstrapServers);
+
+            String topic = "orders-topic";
+
+            // Step 16: Produce with contract rules — valid message
+            System.out.println("\n16. Producing Kafka message with contract rules enabled (valid record)...");
+            {
+                var schema = new org.apache.avro.Schema.Parser().parse(AVRO_SCHEMA_V1);
+                var props = new java.util.Properties();
+                props.put("bootstrap.servers", bootstrapServers);
+                props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+                props.put("value.serializer", "io.apicurio.registry.serde.avro.AvroKafkaSerializer");
+                props.put("apicurio.registry.url", REGISTRY_URL);
+                props.put("apicurio.registry.auto-register", "true");
+                props.put("apicurio.registry.artifact.group-id", GROUP_ID);
+                props.put("apicurio.registry.artifact.artifact-id", ARTIFACT_ID);
+                props.put("apicurio.registry.serde.contract-rules.enabled", "true");
+                props.put("apicurio.registry.serde.contract-rules.fail-on-error", "true");
+
+                var producer = new org.apache.kafka.clients.producer.KafkaProducer<String, org.apache.avro.generic.GenericRecord>(props);
+                var validRecord = new org.apache.avro.generic.GenericData.Record(schema);
+                validRecord.put("orderId", "ORD-KAFKA-001");
+                validRecord.put("customerEmail", "alice@example.com");
+                validRecord.put("totalAmount", 99.99);
+
+                var record = new org.apache.kafka.clients.producer.ProducerRecord<>(
+                        topic, "key1", (org.apache.avro.generic.GenericRecord) validRecord);
+                producer.send(record).get();
+                System.out.println("   Valid message sent successfully (totalAmount=99.99, rule passed)");
+                producer.close();
+            }
+
+            // Step 17: Produce with contract rules — invalid message
+            System.out.println("\n17. Producing Kafka message with contract rules enabled (invalid record)...");
+            {
+                var schema = new org.apache.avro.Schema.Parser().parse(AVRO_SCHEMA_V1);
+                var props = new java.util.Properties();
+                props.put("bootstrap.servers", bootstrapServers);
+                props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+                props.put("value.serializer", "io.apicurio.registry.serde.avro.AvroKafkaSerializer");
+                props.put("apicurio.registry.url", REGISTRY_URL);
+                props.put("apicurio.registry.auto-register", "true");
+                props.put("apicurio.registry.artifact.group-id", GROUP_ID);
+                props.put("apicurio.registry.artifact.artifact-id", ARTIFACT_ID);
+                props.put("apicurio.registry.serde.contract-rules.enabled", "true");
+                props.put("apicurio.registry.serde.contract-rules.fail-on-error", "true");
+
+                var producer = new org.apache.kafka.clients.producer.KafkaProducer<String, org.apache.avro.generic.GenericRecord>(props);
+                var invalidRecord = new org.apache.avro.generic.GenericData.Record(schema);
+                invalidRecord.put("orderId", "ORD-KAFKA-002");
+                invalidRecord.put("customerEmail", "bob@example.com");
+                invalidRecord.put("totalAmount", -5.00);
+
+                try {
+                    var record = new org.apache.kafka.clients.producer.ProducerRecord<>(
+                            topic, "key2", (org.apache.avro.generic.GenericRecord) invalidRecord);
+                    producer.send(record).get();
+                    System.out.println("   ERROR: Message should have been rejected!");
+                } catch (Exception e) {
+                    System.out.println("   Message correctly rejected by contract rule!");
+                    String cause = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
+                    System.out.println("   Error: " + cause);
+                }
+                producer.close();
+            }
+
+            // Step 18: Consume the valid message
+            System.out.println("\n18. Consuming messages from Kafka...");
+            {
+                var props = new java.util.Properties();
+                props.put("bootstrap.servers", bootstrapServers);
+                props.put("group.id", "odcs-demo-consumer");
+                props.put("auto.offset.reset", "earliest");
+                props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
+                props.put("value.deserializer", "io.apicurio.registry.serde.avro.AvroKafkaDeserializer");
+                props.put("apicurio.registry.url", REGISTRY_URL);
+                props.put("apicurio.registry.artifact.group-id", GROUP_ID);
+                props.put("apicurio.registry.artifact.artifact-id", ARTIFACT_ID);
+                props.put("apicurio.registry.serde.contract-rules.enabled", "true");
+                props.put("apicurio.registry.serde.contract-rules.fail-on-error", "false");
+
+                var consumer = new org.apache.kafka.clients.consumer.KafkaConsumer<String, Object>(props);
+                consumer.subscribe(java.util.Collections.singletonList(topic));
+                int totalConsumed = 0;
+                for (int attempt = 0; attempt < 5; attempt++) {
+                    var records = consumer.poll(java.time.Duration.ofSeconds(5));
+                    for (var r : records) {
+                        System.out.println("   - Key: " + r.key() + ", Value: " + r.value());
+                        totalConsumed++;
+                    }
+                    if (totalConsumed > 0) break;
+                }
+                System.out.println("   Consumed " + totalConsumed + " message(s)");
+                consumer.close();
+            }
+
+            // Step 19: Stop Kafka
+            System.out.println("\n19. Stopping embedded Kafka...");
+            kafka.stop();
+            System.out.println("   Kafka stopped.");
+
             // ==================== Clean Up ====================
 
-            // Step 15: Clean up (commented out to allow UI testing)
-            // System.out.println("\n15. Cleaning up...");
+            // Step 20: Clean up (commented out to allow UI testing)
+            // System.out.println("\n20. Cleaning up...");
             // client.admin().contracts().ruleset().delete();
             // client.groups().byGroupId(GROUP_ID)
             //         .contracts().byContractId(CONTRACT_ID).delete();
             // client.groups().byGroupId(GROUP_ID)
             //         .artifacts().byArtifactId(ARTIFACT_ID).delete();
             // System.out.println("   Cleaned up global rules, contract, and schema.");
-            System.out.println("\n15. Cleanup skipped — data left for UI testing.");
+            System.out.println("\n20. Cleanup skipped — data left for UI testing.");
 
             System.out.println("\n=== Demo complete! ===");
             System.out.println("\nTo explore the UI:");

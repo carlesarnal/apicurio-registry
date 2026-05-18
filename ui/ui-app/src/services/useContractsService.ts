@@ -84,12 +84,50 @@ const transitionContractStatus = async (config: ConfigService, auth: AuthService
     return axios.put(endpoint, { status }, options).then(response => response.data);
 };
 
+export interface ContractRule {
+    name?: string;
+    kind?: string;
+    type?: string;
+    mode?: string;
+    expr?: string;
+    onFailure?: string;
+    disabled?: boolean;
+}
+
+export interface ContractRuleSet {
+    domainRules?: ContractRule[];
+    migrationRules?: ContractRule[];
+}
+
+const getContractRuleset = async (config: ConfigService, auth: AuthService,
+    groupId: string | null, artifactId: string): Promise<ContractRuleSet> => {
+    const baseHref: string = config.artifactsUrl();
+    groupId = groupId || "default";
+    const endpoint: string = createEndpoint(baseHref, "/groups/:groupId/artifacts/:artifactId/contract/ruleset",
+        { groupId, artifactId });
+    const options = await createAuthOptions(auth);
+    return axios.get(endpoint, options).then(response => response.data);
+};
+
+const promoteContract = async (config: ConfigService, auth: AuthService,
+    groupId: string | null, artifactId: string,
+    contractId: string, targetStage: string): Promise<void> => {
+    const baseHref: string = config.artifactsUrl();
+    groupId = groupId || "default";
+    const endpoint: string = createEndpoint(baseHref, "/groups/:groupId/artifacts/:artifactId/contract/promote",
+        { groupId, artifactId });
+    const options = await createAuthOptions(auth);
+    return axios.post(endpoint, { contractId, targetStage }, options).then(response => response.data);
+};
+
 export type ContractsService = {
     getContractMetadata(groupId: string | null, artifactId: string): Promise<ContractMetadata>;
     getContractQuality(groupId: string | null, artifactId: string, contractId: string): Promise<QualityScore>;
     getContractAuditLog(groupId: string | null, artifactId: string, offset: number, limit: number): Promise<ContractAuditEntry[]>;
     updateContractMetadata(groupId: string | null, artifactId: string, metadata: ContractMetadata): Promise<ContractMetadata>;
     transitionContractStatus(groupId: string | null, artifactId: string, status: string): Promise<ContractMetadata>;
+    getContractRuleset(groupId: string | null, artifactId: string): Promise<ContractRuleSet>;
+    promoteContract(groupId: string | null, artifactId: string, contractId: string, targetStage: string): Promise<void>;
 };
 
 export const useContractsService: () => ContractsService = (): ContractsService => {
@@ -107,5 +145,9 @@ export const useContractsService: () => ContractsService = (): ContractsService 
             updateContractMetadata(config, auth, groupId, artifactId, metadata),
         transitionContractStatus: (groupId: string | null, artifactId: string, status: string) =>
             transitionContractStatus(config, auth, groupId, artifactId, status),
+        getContractRuleset: (groupId: string | null, artifactId: string) =>
+            getContractRuleset(config, auth, groupId, artifactId),
+        promoteContract: (groupId: string | null, artifactId: string, contractId: string, targetStage: string) =>
+            promoteContract(config, auth, groupId, artifactId, contractId, targetStage),
     };
 };

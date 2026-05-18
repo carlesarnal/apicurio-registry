@@ -141,7 +141,7 @@ public abstract class AbstractSerializer<T, U> implements AutoCloseable {
             }
 
             if (contractRulesEnabled) {
-                executeContractRulesForWrite(schema);
+                executeContractRulesForWrite(schema, data);
             }
 
             // Pre-size buffer to avoid array resizing for typical messages
@@ -160,16 +160,18 @@ public abstract class AbstractSerializer<T, U> implements AutoCloseable {
         return baseSerde;
     }
 
-    private void executeContractRulesForWrite(SchemaLookupResult<T> schema) {
+    @SuppressWarnings("unchecked")
+    private void executeContractRulesForWrite(SchemaLookupResult<T> schema, U data) {
         try {
             var ref = schema.toArtifactReference();
             var facade = baseSerde.getClientFacade();
             if (facade == null) {
                 return;
             }
+            Map<String, Object> recordMap = dataToMap(data);
             var result = facade.executeContractRules(
                     ref.getGroupId(), ref.getArtifactId(), ref.getVersion(),
-                    "WRITE", Map.of());
+                    "WRITE", recordMap);
             if (result != null && !result.isPassed()) {
                 String msg = "Contract rule validation failed (WRITE): " + result.getViolations();
                 if (contractRulesFailOnError) {
@@ -182,6 +184,23 @@ public abstract class AbstractSerializer<T, U> implements AutoCloseable {
                 throw e;
             }
             LOG.warning("Contract rule execution failed: " + e.getMessage());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> dataToMap(U data) {
+        if (data == null) {
+            return Map.of();
+        }
+        if (data instanceof Map) {
+            return (Map<String, Object>) data;
+        }
+        try {
+            var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            String json = data.toString();
+            return mapper.readValue(json, Map.class);
+        } catch (Exception e) {
+            return Map.of();
         }
     }
 

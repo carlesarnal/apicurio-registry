@@ -1,6 +1,10 @@
 import { FunctionComponent, useEffect, useState } from "react";
 import "./ArtifactContractTabContent.css";
 import {
+    ActionList,
+    ActionListItem,
+    Alert,
+    Button,
     Card,
     CardBody,
     CardTitle,
@@ -13,15 +17,26 @@ import {
     EmptyStateBody,
     Grid,
     GridItem,
+    HelperText,
+    HelperTextItem,
+    Label,
+    Modal,
+    ModalBody,
+    ModalFooter,
+    ModalHeader,
+    ModalVariant,
     Timestamp,
     TimestampFormat,
 } from "@patternfly/react-core";
+import { ArrowUpIcon, ExternalLinkAltIcon } from "@patternfly/react-icons";
 import { Table, Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import { ArtifactMetaData } from "@sdk/lib/generated-client/models";
 import { ContractStatusBadge, QualityScoreGauge } from "@app/components/contracts";
+import { useAppNavigation } from "@services/useAppNavigation.ts";
 import {
     ContractAuditEntry,
     ContractMetadata,
+    ContractRuleSet,
     ContractsService,
     QualityScore,
     useContractsService
@@ -36,30 +51,98 @@ export const ArtifactContractTabContent: FunctionComponent<ArtifactContractTabCo
     const [contractMetadata, setContractMetadata] = useState<ContractMetadata>();
     const [qualityScore, setQualityScore] = useState<QualityScore>();
     const [auditLog, setAuditLog] = useState<ContractAuditEntry[]>([]);
+    const [ruleset, setRuleset] = useState<ContractRuleSet>();
     const [hasContract, setHasContract] = useState<boolean>(false);
+    const [actionError, setActionError] = useState<string>();
+    const [isPromoteModalOpen, setIsPromoteModalOpen] = useState(false);
+    const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
 
     const contracts: ContractsService = useContractsService();
+    const appNavigation = useAppNavigation();
 
-    useEffect(() => {
-        const groupId = props.artifact?.groupId || null;
-        const artifactId = props.artifact?.artifactId;
+    const groupId = props.artifact?.groupId || null;
+    const artifactId = props.artifact?.artifactId;
+
+    const loadData = () => {
         if (!artifactId) return;
 
         contracts.getContractMetadata(groupId, artifactId).then(metadata => {
             setContractMetadata(metadata);
             setHasContract(!!metadata.status);
-        }).catch(() => {
-            setHasContract(false);
+        }).catch(() => setHasContract(false));
+
+        contracts.getContractQuality(groupId, artifactId, "default").then(setQualityScore).catch(() => {});
+        contracts.getContractAuditLog(groupId, artifactId, 0, 10).then(setAuditLog).catch(() => {});
+        contracts.getContractRuleset(groupId, artifactId).then(setRuleset).catch(() => {});
+    };
+
+    useEffect(loadData, [props.artifact]);
+
+    const contractId = (): string => {
+        const labels = props.artifact?.labels || {};
+        for (const key of Object.keys(labels)) {
+            if (key.startsWith("contract.") && key.endsWith(".id")) {
+                return labels[key] as string;
+            }
+        }
+        return "default";
+    };
+
+    const contractArtifactLink = (): string => {
+        const gid = encodeURIComponent(groupId || "default");
+        const cid = contractId();
+        if (cid && cid !== "default") {
+            return `/explore/${gid}/${encodeURIComponent(cid)}`;
+        }
+        return "";
+    };
+
+    const nextStage = (): string | null => {
+        const stage = contractMetadata?.stage?.toUpperCase();
+        if (!stage) return "DEV";
+        if (stage === "DEV") return "STAGE";
+        if (stage === "STAGE") return "PROD";
+        return null;
+    };
+
+    const doPromote = () => {
+        const target = nextStage();
+        if (!target || !artifactId) return;
+        setActionError(undefined);
+        contracts.promoteContract(groupId, artifactId, contractId(), target).then(() => {
+            setIsPromoteModalOpen(false);
+            loadData();
+        }).catch(e => {
+            setActionError("Promotion failed: " + (e?.response?.data?.detail || e?.message || "unknown error"));
         });
+    };
 
-        contracts.getContractQuality(groupId, artifactId, "default").then(score => {
-            setQualityScore(score);
-        }).catch(() => { /* no quality score available */ });
+    const doTransitionStatus = (status: string) => {
+        if (!artifactId) return;
+        setActionError(undefined);
+        contracts.transitionContractStatus(groupId, artifactId, status).then(() => {
+            setIsStatusModalOpen(false);
+            loadData();
+        }).catch(e => {
+            setActionError("Status transition failed: " + (e?.response?.data?.detail || e?.message || "unknown error"));
+        });
+    };
 
-        contracts.getContractAuditLog(groupId, artifactId, 0, 10).then(entries => {
-            setAuditLog(entries);
-        }).catch(() => { /* no audit log available */ });
-    }, [props.artifact]);
+    const stageLabel = (stage: string | undefined): React.ReactNode => {
+        if (!stage) return <Label color="grey">Not promoted</Label>;
+        switch (stage.toUpperCase()) {
+        case "DEV": return <Label color="cyan">DEV</Label>;
+        case "STAGE": return <Label color="purple">STAGE</Label>;
+        case "PROD": return <Label color="green">PROD</Label>;
+        default: return <Label>{stage}</Label>;
+        }
+    };
+
+    const ruleKindLabel = (kind: string | undefined): React.ReactNode => {
+        if (kind === "CONDITION") return <Label color="blue">Condition</Label>;
+        if (kind === "TRANSFORM") return <Label color="purple">Transform</Label>;
+        return <Label>{kind || "-"}</Label>;
+    };
 
     if (!hasContract) {
         return (
@@ -74,62 +157,93 @@ export const ArtifactContractTabContent: FunctionComponent<ArtifactContractTabCo
         );
     }
 
+    const contractLink = contractArtifactLink();
+    const domainRules = ruleset?.domainRules || [];
+    const migrationRules = ruleset?.migrationRules || [];
+    const allRules = [...domainRules, ...migrationRules];
+    const promoteTarget = nextStage();
+
     return (
         <div className="artifact-contract-tab-content">
+            {actionError && (
+                <Alert variant="danger" title={actionError} isInline
+                    style={{ marginBottom: 15 }}
+                    actionClose={<Button variant="plain" onClick={() => setActionError(undefined)}>Dismiss</Button>} />
+            )}
             <Grid hasGutter>
+                {/* Metadata card */}
                 <GridItem span={6}>
                     <Card className="contract-section" variant="secondary" style={{ backgroundColor: "white" }}>
                         <CardTitle>Contract Metadata</CardTitle>
                         <Divider />
                         <CardBody>
                             <DescriptionList isHorizontal>
+                                {contractLink && (
+                                    <DescriptionListGroup>
+                                        <DescriptionListTerm>ODCS Contract</DescriptionListTerm>
+                                        <DescriptionListDescription>
+                                            <Button variant="link" isInline
+                                                icon={<ExternalLinkAltIcon />}
+                                                iconPosition="end"
+                                                onClick={() => appNavigation.navigateTo(contractLink)}>
+                                                View contract artifact
+                                            </Button>
+                                        </DescriptionListDescription>
+                                    </DescriptionListGroup>
+                                )}
                                 <DescriptionListGroup>
                                     <DescriptionListTerm>Status</DescriptionListTerm>
                                     <DescriptionListDescription>
                                         <ContractStatusBadge status={contractMetadata?.status} />
+                                        {" "}
+                                        <Button variant="link" isInline size="sm"
+                                            onClick={() => { setActionError(undefined); setIsStatusModalOpen(true); }}>
+                                            Change
+                                        </Button>
                                     </DescriptionListDescription>
                                 </DescriptionListGroup>
                                 <DescriptionListGroup>
-                                    <DescriptionListTerm>Stage</DescriptionListTerm>
+                                    <DescriptionListTerm>Promotion Stage</DescriptionListTerm>
                                     <DescriptionListDescription>
-                                        {contractMetadata?.stage || "-"}
+                                        {stageLabel(contractMetadata?.stage)}
+                                        {promoteTarget && (
+                                            <>
+                                                {" "}
+                                                <Button variant="link" isInline size="sm"
+                                                    icon={<ArrowUpIcon />}
+                                                    onClick={() => { setActionError(undefined); setIsPromoteModalOpen(true); }}>
+                                                    Promote to {promoteTarget}
+                                                </Button>
+                                            </>
+                                        )}
                                     </DescriptionListDescription>
                                 </DescriptionListGroup>
                                 <DescriptionListGroup>
                                     <DescriptionListTerm>Owner Team</DescriptionListTerm>
-                                    <DescriptionListDescription>
-                                        {contractMetadata?.ownerTeam || "-"}
-                                    </DescriptionListDescription>
+                                    <DescriptionListDescription>{contractMetadata?.ownerTeam || "-"}</DescriptionListDescription>
                                 </DescriptionListGroup>
                                 <DescriptionListGroup>
                                     <DescriptionListTerm>Owner Domain</DescriptionListTerm>
-                                    <DescriptionListDescription>
-                                        {contractMetadata?.ownerDomain || "-"}
-                                    </DescriptionListDescription>
+                                    <DescriptionListDescription>{contractMetadata?.ownerDomain || "-"}</DescriptionListDescription>
                                 </DescriptionListGroup>
                                 <DescriptionListGroup>
                                     <DescriptionListTerm>Classification</DescriptionListTerm>
-                                    <DescriptionListDescription>
-                                        {contractMetadata?.classification || "-"}
-                                    </DescriptionListDescription>
+                                    <DescriptionListDescription>{contractMetadata?.classification || "-"}</DescriptionListDescription>
                                 </DescriptionListGroup>
                                 <DescriptionListGroup>
                                     <DescriptionListTerm>Support Contact</DescriptionListTerm>
-                                    <DescriptionListDescription>
-                                        {contractMetadata?.supportContact || "-"}
-                                    </DescriptionListDescription>
+                                    <DescriptionListDescription>{contractMetadata?.supportContact || "-"}</DescriptionListDescription>
                                 </DescriptionListGroup>
                                 <DescriptionListGroup>
                                     <DescriptionListTerm>Compatibility Group</DescriptionListTerm>
-                                    <DescriptionListDescription>
-                                        {contractMetadata?.compatibilityGroup || "-"}
-                                    </DescriptionListDescription>
+                                    <DescriptionListDescription>{contractMetadata?.compatibilityGroup || "-"}</DescriptionListDescription>
                                 </DescriptionListGroup>
                             </DescriptionList>
                         </CardBody>
                     </Card>
                 </GridItem>
 
+                {/* Quality score card */}
                 <GridItem span={6}>
                     <Card className="contract-section" variant="secondary" style={{ backgroundColor: "white" }}>
                         <CardTitle>Quality Score</CardTitle>
@@ -137,10 +251,45 @@ export const ArtifactContractTabContent: FunctionComponent<ArtifactContractTabCo
                         <CardBody>
                             {qualityScore ? (
                                 <div className="quality-scores">
-                                    <QualityScoreGauge label="Overall" score={qualityScore.overall} />
-                                    <QualityScoreGauge label="Completeness" score={qualityScore.completeness} />
-                                    <QualityScoreGauge label="Compliance" score={qualityScore.compliance} />
-                                    <QualityScoreGauge label="Stability" score={qualityScore.stability} />
+                                    <div className="quality-score-row">
+                                        <QualityScoreGauge label="Overall" score={qualityScore.overall} />
+                                        <HelperText>
+                                            <HelperTextItem variant="indeterminate">
+                                                Weighted average: Completeness (30%) + Compliance (40%) + Stability (30%).
+                                                The quality score is informational and does not block any operations.
+                                            </HelperTextItem>
+                                        </HelperText>
+                                    </div>
+                                    <div className="quality-score-row">
+                                        <QualityScoreGauge label="Completeness (30%)" score={qualityScore.completeness} />
+                                        <HelperText>
+                                            <HelperTextItem variant={qualityScore.completeness >= 1.0 ? "success" : "warning"}>
+                                                {qualityScore.completeness >= 1.0
+                                                    ? "All metadata fields are set."
+                                                    : "To improve: ensure the ODCS contract YAML includes all of: info.description, team.name, team.domain, team.contact, info.dataClassification, and serviceLevel.availability. These are projected onto the artifact as contract labels when the contract is submitted."}
+                                            </HelperTextItem>
+                                        </HelperText>
+                                    </div>
+                                    <div className="quality-score-row">
+                                        <QualityScoreGauge label="Compliance (40%)" score={qualityScore.compliance} />
+                                        <HelperText>
+                                            <HelperTextItem variant={qualityScore.compliance >= 1.0 ? "success" : "warning"}>
+                                                {qualityScore.compliance >= 1.0
+                                                    ? "Domain rules are defined and contract status is set."
+                                                    : "To improve: add at least one domain rule (e.g. a CEL validation rule) via PUT .../contract/ruleset, and set the contract status (DRAFT, STABLE, or DEPRECATED) via the ODCS contract's info.status field or PUT .../contract/status."}
+                                            </HelperTextItem>
+                                        </HelperText>
+                                    </div>
+                                    <div className="quality-score-row">
+                                        <QualityScoreGauge label="Stability (30%)" score={qualityScore.stability} />
+                                        <HelperText>
+                                            <HelperTextItem variant={qualityScore.stability >= 1.0 ? "success" : "warning"}>
+                                                {qualityScore.stability >= 1.0
+                                                    ? "Contract is stable with version history."
+                                                    : "To improve: transition the contract status to STABLE (via PUT .../contract/status), publish more than one schema version (so there is version history), and ensure the ODCS contract has an id field."}
+                                            </HelperTextItem>
+                                        </HelperText>
+                                    </div>
                                 </div>
                             ) : (
                                 <p>Quality score not available.</p>
@@ -149,6 +298,53 @@ export const ArtifactContractTabContent: FunctionComponent<ArtifactContractTabCo
                     </Card>
                 </GridItem>
 
+                {/* Contract rules card */}
+                <GridItem span={12}>
+                    <Card className="contract-section" variant="secondary" style={{ backgroundColor: "white" }}>
+                        <CardTitle>Contract Rules</CardTitle>
+                        <Divider />
+                        <CardBody>
+                            {allRules.length > 0 ? (
+                                <Table aria-label="Contract rules" variant="compact">
+                                    <Thead>
+                                        <Tr>
+                                            <Th>Name</Th>
+                                            <Th>Kind</Th>
+                                            <Th>Type</Th>
+                                            <Th>Mode</Th>
+                                            <Th>Expression</Th>
+                                            <Th>On Failure</Th>
+                                            <Th>Enabled</Th>
+                                        </Tr>
+                                    </Thead>
+                                    <Tbody>
+                                        {allRules.map((rule, idx) => (
+                                            <Tr key={idx}>
+                                                <Td>{rule.name || "-"}</Td>
+                                                <Td>{ruleKindLabel(rule.kind)}</Td>
+                                                <Td><Label isCompact>{rule.type || "-"}</Label></Td>
+                                                <Td>{rule.mode || "-"}</Td>
+                                                <Td><code>{rule.expr || "-"}</code></Td>
+                                                <Td>{rule.onFailure || "-"}</Td>
+                                                <Td>{rule.disabled ? <Label color="grey">Disabled</Label> : <Label color="green">Active</Label>}</Td>
+                                            </Tr>
+                                        ))}
+                                    </Tbody>
+                                </Table>
+                            ) : (
+                                <p>No contract rules defined. Add rules via the REST API: PUT /groups/&#123;groupId&#125;/artifacts/&#123;artifactId&#125;/contract/ruleset</p>
+                            )}
+                            <HelperText style={{ marginTop: 10 }}>
+                                <HelperTextItem variant="indeterminate">
+                                    <strong>Condition</strong> rules validate data (pass/fail). <strong>Transform</strong> rules modify data (e.g. schema migration).
+                                    Rules are executed via POST .../contract/execute or automatically by SerDes when contract-rules.enabled=true.
+                                </HelperTextItem>
+                            </HelperText>
+                        </CardBody>
+                    </Card>
+                </GridItem>
+
+                {/* Audit log card */}
                 <GridItem span={12}>
                     <Card className="contract-section" variant="secondary" style={{ backgroundColor: "white" }}>
                         <CardTitle>Audit Log</CardTitle>
@@ -189,6 +385,69 @@ export const ArtifactContractTabContent: FunctionComponent<ArtifactContractTabCo
                     </Card>
                 </GridItem>
             </Grid>
+
+            {/* Promote modal */}
+            <Modal variant={ModalVariant.small}
+                isOpen={isPromoteModalOpen}
+                onClose={() => setIsPromoteModalOpen(false)}>
+                <ModalHeader title={`Promote to ${promoteTarget}`} />
+                <ModalBody>
+                    <p>
+                        Promote the contract from <strong>{contractMetadata?.stage || "unset"}</strong> to <strong>{promoteTarget}</strong>?
+                    </p>
+                    <p style={{ marginTop: 10, color: "#666" }}>
+                        Promotion stages: DEV → STAGE → PROD. Promotion to PROD requires the contract status to be STABLE.
+                    </p>
+                    {actionError && <Alert variant="danger" title={actionError} isInline style={{ marginTop: 10 }} />}
+                </ModalBody>
+                <ModalFooter>
+                    <ActionList>
+                        <ActionListItem>
+                            <Button variant="primary" onClick={doPromote}>Promote</Button>
+                        </ActionListItem>
+                        <ActionListItem>
+                            <Button variant="link" onClick={() => setIsPromoteModalOpen(false)}>Cancel</Button>
+                        </ActionListItem>
+                    </ActionList>
+                </ModalFooter>
+            </Modal>
+
+            {/* Status transition modal */}
+            <Modal variant={ModalVariant.small}
+                isOpen={isStatusModalOpen}
+                onClose={() => setIsStatusModalOpen(false)}>
+                <ModalHeader title="Change contract status" />
+                <ModalBody>
+                    <p>Current status: <ContractStatusBadge status={contractMetadata?.status} /></p>
+                    <p style={{ marginTop: 10 }}>Allowed transitions:</p>
+                    <ul style={{ marginTop: 5, paddingLeft: 20 }}>
+                        <li>DRAFT → STABLE or DEPRECATED</li>
+                        <li>STABLE → DEPRECATED</li>
+                    </ul>
+                    {actionError && <Alert variant="danger" title={actionError} isInline style={{ marginTop: 10 }} />}
+                </ModalBody>
+                <ModalFooter>
+                    <ActionList>
+                        {contractMetadata?.status !== "STABLE" && (
+                            <ActionListItem>
+                                <Button variant="primary" onClick={() => doTransitionStatus("STABLE")}>
+                                    Mark as Stable
+                                </Button>
+                            </ActionListItem>
+                        )}
+                        {contractMetadata?.status !== "DEPRECATED" && (
+                            <ActionListItem>
+                                <Button variant="warning" onClick={() => doTransitionStatus("DEPRECATED")}>
+                                    Deprecate
+                                </Button>
+                            </ActionListItem>
+                        )}
+                        <ActionListItem>
+                            <Button variant="link" onClick={() => setIsStatusModalOpen(false)}>Cancel</Button>
+                        </ActionListItem>
+                    </ActionList>
+                </ModalFooter>
+            </Modal>
         </div>
     );
 };
