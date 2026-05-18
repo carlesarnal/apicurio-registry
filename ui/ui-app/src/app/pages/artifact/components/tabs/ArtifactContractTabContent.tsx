@@ -390,12 +390,14 @@ export const ArtifactContractTabContent: FunctionComponent<ArtifactContractTabCo
                                     </Tbody>
                                 </Table>
                             ) : (
-                                <p>No contract rules defined. Add quality rules by editing the ODCS contract YAML
-                                    (quality.accuracy section) and re-submitting it.</p>
-                                <Button variant="secondary" onClick={openOdcsEditor}
-                                    style={{ marginTop: 10 }}>
-                                    Edit ODCS Contract
-                                </Button>
+                                <>
+                                    <p>No contract rules defined. Add quality rules by editing the ODCS contract YAML
+                                        (quality.accuracy section) and re-submitting it.</p>
+                                    <Button variant="secondary" onClick={openOdcsEditor}
+                                        style={{ marginTop: 10 }}>
+                                        Edit ODCS Contract
+                                    </Button>
+                                </>
                             )}
                             <div style={{ marginTop: 10, display: "flex", gap: 10, alignItems: "center" }}>
                                 <Button variant="secondary" onClick={openOdcsEditor}>

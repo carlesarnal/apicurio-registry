@@ -81,7 +81,7 @@ const transitionContractStatus = async (config: ConfigService, auth: AuthService
     const endpoint: string = createEndpoint(baseHref, "/groups/:groupId/artifacts/:artifactId/contract/status",
         { groupId, artifactId });
     const options = await createAuthOptions(auth);
-    return axios.put(endpoint, { status }, options).then(response => response.data);
+    return axios.post(endpoint, { status }, options).then(response => response.data);
 };
 
 export interface ContractRule {
