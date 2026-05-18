@@ -2099,24 +2099,21 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
         String prefix = contractId != null
                 ? ContractLabels.contractPrefix(contractId) : ContractLabels.PREFIX;
 
-        // Use atomic merge for the status and lifecycle labels
-        Map<String, String> statusLabels = new java.util.HashMap<>();
-        statusLabels.put(prefix + ContractLabels.SUFFIX_STATUS, targetStatus.name());
+        // Update status label
+        String statusKey = prefix + ContractLabels.SUFFIX_STATUS;
+        storage.mergeArtifactLabels(rawGroupId, artifactId, statusKey,
+                Map.of(statusKey, targetStatus.name()));
 
+        // Update lifecycle date labels
         if (targetStatus == ContractStatus.STABLE) {
-            statusLabels.putIfAbsent(prefix + ContractLabels.SUFFIX_STABLE_DATE,
-                    java.time.LocalDate.now().toString());
+            String key = prefix + ContractLabels.SUFFIX_STABLE_DATE;
+            storage.mergeArtifactLabels(rawGroupId, artifactId, key,
+                    Map.of(key, java.time.LocalDate.now().toString()));
         }
         if (targetStatus == ContractStatus.DEPRECATED) {
-            statusLabels.putIfAbsent(prefix + ContractLabels.SUFFIX_DEPRECATED_DATE,
-                    java.time.LocalDate.now().toString());
-        }
-
-        storage.mergeArtifactLabels(rawGroupId, artifactId,
-                prefix + ContractLabels.SUFFIX_STATUS, statusLabels);
-        if (statusLabels.size() > 1) {
-            storage.mergeArtifactLabels(rawGroupId, artifactId,
-                    prefix + "lifecycle.", statusLabels);
+            String key = prefix + ContractLabels.SUFFIX_DEPRECATED_DATE;
+            storage.mergeArtifactLabels(rawGroupId, artifactId, key,
+                    Map.of(key, java.time.LocalDate.now().toString()));
         }
 
         // Fire status changed event
