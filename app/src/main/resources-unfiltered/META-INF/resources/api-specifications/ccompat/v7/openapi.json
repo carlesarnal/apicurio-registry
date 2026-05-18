@@ -3385,6 +3385,14 @@
             "items": {
               "$ref": "#/components/schemas/SchemaReference"
             }
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Metadata associated with the schema (tags, properties, sensitive)."
+          },
+          "ruleSet": {
+            "type": "object",
+            "description": "Ruleset configuration for the schema (domainRules, migrationRules)."
           }
         }
       },

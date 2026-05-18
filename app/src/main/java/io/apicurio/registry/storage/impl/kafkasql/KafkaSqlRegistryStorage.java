@@ -724,6 +724,36 @@ public class KafkaSqlRegistryStorage extends ReadOnlyDelegatingStorage implement
         return sqlStore.getContractRulesByTag(tag);
     }
 
+    @Override
+    public io.apicurio.registry.storage.dto.ContractRuleSetDto getGlobalContractRuleset()
+            throws RegistryStorageException {
+        return sqlStore.getGlobalContractRuleset();
+    }
+
+    @Override
+    public void setGlobalContractRuleset(io.apicurio.registry.storage.dto.ContractRuleSetDto ruleset)
+            throws RegistryStorageException {
+        sqlStore.setGlobalContractRuleset(ruleset);
+    }
+
+    @Override
+    public void deleteGlobalContractRuleset() throws RegistryStorageException {
+        sqlStore.deleteGlobalContractRuleset();
+    }
+
+    @Override
+    public void insertContractAuditEntry(io.apicurio.registry.storage.dto.ContractAuditEntryDto entry)
+            throws RegistryStorageException {
+        sqlStore.insertContractAuditEntry(entry);
+    }
+
+    @Override
+    public java.util.List<io.apicurio.registry.storage.dto.ContractAuditEntryDto> getContractAuditLog(
+            String groupId, String artifactId, int offset, int limit)
+            throws RegistryStorageException {
+        return sqlStore.getContractAuditLog(groupId, artifactId, offset, limit);
+    }
+
     /**
      * @see io.apicurio.registry.storage.RegistryStorage#deleteArtifactVersion(java.lang.String,
      *      java.lang.String, java.lang.String)

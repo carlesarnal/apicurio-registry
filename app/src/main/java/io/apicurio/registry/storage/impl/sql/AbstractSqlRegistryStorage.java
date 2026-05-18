@@ -167,6 +167,7 @@ public abstract class AbstractSqlRegistryStorage implements RegistryStorage {
     SqlEventRepository eventRepository;
     SqlCleanupRepository cleanupRepository;
     SqlContractRuleRepository contractRuleRepository;
+    SqlContractAuditRepository contractAuditRepository;
 
     private volatile boolean isReady = false;
     private volatile Instant isAliveLastCheck = Instant.MIN;
@@ -295,6 +296,7 @@ public abstract class AbstractSqlRegistryStorage implements RegistryStorage {
         // Level 4.5: depend on level 4 (versionRepository)
         contractRuleRepository = new SqlContractRuleRepository(handleFactory, sqlStatements, log,
                 versionRepository);
+        contractAuditRepository = new SqlContractAuditRepository(handleFactory, sqlStatements, log);
 
         // Level 5: depend on level 4
         commentRepository = new SqlCommentRepository(handleFactory, sqlStatements, log,
@@ -838,12 +840,18 @@ public abstract class AbstractSqlRegistryStorage implements RegistryStorage {
     public void setArtifactContractRuleset(String groupId, String artifactId,
             ContractRuleSetDto ruleset) throws RegistryStorageException {
         contractRuleRepository.setArtifactContractRuleset(groupId, artifactId, ruleset);
+        outboxEvent.fire(SqlOutboxEvent.of(
+                io.apicurio.registry.events.ContractRulesetConfigured.of(
+                        groupId, artifactId, null, "SET")));
     }
 
     @Override
     public void deleteArtifactContractRuleset(String groupId, String artifactId)
             throws RegistryStorageException {
         contractRuleRepository.deleteArtifactContractRuleset(groupId, artifactId);
+        outboxEvent.fire(SqlOutboxEvent.of(
+                io.apicurio.registry.events.ContractRulesetConfigured.of(
+                        groupId, artifactId, null, "DELETE")));
     }
 
     @Override
@@ -856,12 +864,50 @@ public abstract class AbstractSqlRegistryStorage implements RegistryStorage {
     public void setVersionContractRuleset(String groupId, String artifactId, String version,
             ContractRuleSetDto ruleset) throws VersionNotFoundException, RegistryStorageException {
         contractRuleRepository.setVersionContractRuleset(groupId, artifactId, version, ruleset);
+        outboxEvent.fire(SqlOutboxEvent.of(
+                io.apicurio.registry.events.ContractRulesetConfigured.of(
+                        groupId, artifactId, version, "SET")));
     }
 
     @Override
     public void deleteVersionContractRuleset(String groupId, String artifactId, String version)
             throws VersionNotFoundException, RegistryStorageException {
         contractRuleRepository.deleteVersionContractRuleset(groupId, artifactId, version);
+        outboxEvent.fire(SqlOutboxEvent.of(
+                io.apicurio.registry.events.ContractRulesetConfigured.of(
+                        groupId, artifactId, version, "DELETE")));
+    }
+
+    @Override
+    public ContractRuleSetDto getGlobalContractRuleset() throws RegistryStorageException {
+        return contractRuleRepository.getGlobalContractRuleset();
+    }
+
+    @Override
+    public void setGlobalContractRuleset(ContractRuleSetDto ruleset) throws RegistryStorageException {
+        contractRuleRepository.setGlobalContractRuleset(ruleset);
+        outboxEvent.fire(SqlOutboxEvent.of(
+                io.apicurio.registry.events.ContractRulesetConfigured.of(
+                        "__GLOBAL__", "__GLOBAL__", null, "SET")));
+    }
+
+    @Override
+    public void deleteGlobalContractRuleset() throws RegistryStorageException {
+        contractRuleRepository.deleteGlobalContractRuleset();
+        outboxEvent.fire(SqlOutboxEvent.of(
+                io.apicurio.registry.events.ContractRulesetConfigured.of(
+                        "__GLOBAL__", "__GLOBAL__", null, "DELETE")));
+    }
+
+    @Override
+    public void insertContractAuditEntry(ContractAuditEntryDto entry) throws RegistryStorageException {
+        contractAuditRepository.insertAuditEntry(entry);
+    }
+
+    @Override
+    public List<ContractAuditEntryDto> getContractAuditLog(String groupId, String artifactId,
+            int offset, int limit) throws RegistryStorageException {
+        return contractAuditRepository.getAuditLog(groupId, artifactId, offset, limit);
     }
 
     @Override

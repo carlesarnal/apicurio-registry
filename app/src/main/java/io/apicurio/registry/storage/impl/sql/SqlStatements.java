@@ -820,4 +820,16 @@ public interface SqlStatements {
     String importContractRule();
 
     String selectContractRulesByTag();
+
+    String selectGlobalContractRules();
+
+    String deleteGlobalContractRules();
+
+    String insertContractAuditEntry();
+
+    String selectContractAuditLog();
+
+    String selectContractAuditLogCount();
+
+    String deleteAllContractAuditEntries();
 }

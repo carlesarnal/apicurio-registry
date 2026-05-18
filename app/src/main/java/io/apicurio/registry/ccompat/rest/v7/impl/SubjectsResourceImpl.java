@@ -69,6 +69,13 @@ public class SubjectsResourceImpl extends AbstractResource implements SubjectsRe
     @Inject
     SchemaFormatService formatService;
 
+    @Inject
+    ConfluentContractTranslator contractTranslator;
+
+    @Inject
+    @io.apicurio.registry.cdi.Current
+    io.apicurio.registry.storage.RegistryStorage contractStorage;
+
     private final Cache<GA, Lock> subjectLocks = CacheBuilder.newBuilder()
             .expireAfterAccess(1, TimeUnit.HOURS) // Evict locks after 1 hour of inactivity
             .maximumSize(10000) // Limit the cache size to 10,000 locks
@@ -302,6 +309,8 @@ public class SubjectsResourceImpl extends AbstractResource implements SubjectsRe
                 ArtifactVersionMetaDataDto newOrUpdatedDto = registerNewSchemaVersion(subject, groupId, request, fnormalize, resolvedReferences);
                 sid = cconfig.legacyIdModeEnabled.get() ? newOrUpdatedDto.getGlobalId() : newOrUpdatedDto.getContentId();
             }
+
+            applyConfluentContractData(ga, request);
 
             BigInteger id = converter.convertUnsigned(sid);
             SchemaId schemaId = new SchemaId();
@@ -582,5 +591,51 @@ public class SubjectsResourceImpl extends AbstractResource implements SubjectsRe
                 .map(versionOrder -> converter.convertUnsigned((long) versionOrder))
                 .sorted()
                 .collect(Collectors.toList());
+    }
+
+    @SuppressWarnings("unchecked")
+    private void applyConfluentContractData(GA ga, RegisterSchemaRequest request) {
+        try {
+            Object rawMetadata = request.getMetadata();
+            Object rawRuleSet = request.getRuleSet();
+
+            if (rawMetadata == null && rawRuleSet == null) {
+                return;
+            }
+
+            String groupId = ga.getRawGroupIdWithNull();
+            String artifactId = ga.getRawArtifactId();
+            String contractId = "default";
+
+            if (rawMetadata instanceof Map) {
+                Map<String, Object> metadata = (Map<String, Object>) rawMetadata;
+
+                Map<String, String> labels = contractTranslator.translateMetadataToLabels(
+                        metadata, contractId);
+                if (!labels.isEmpty()) {
+                    contractStorage.mergeArtifactLabels(groupId, artifactId,
+                            io.apicurio.registry.contracts.ContractLabels.contractPrefix(contractId),
+                            labels);
+                }
+
+                Map<String, String> tagLabels = contractTranslator.translateTagsToVersionLabels(
+                        metadata, contractId);
+                if (!tagLabels.isEmpty()) {
+                    contractStorage.mergeVersionLabels(groupId, artifactId, "branch=latest",
+                            "field-tag.", tagLabels);
+                }
+            }
+
+            if (rawRuleSet instanceof Map) {
+                io.apicurio.registry.storage.dto.ContractRuleSetDto ruleset =
+                        contractTranslator.translateRuleSet((Map<String, Object>) rawRuleSet);
+                if (ruleset != null) {
+                    contractStorage.setArtifactContractRuleset(groupId, artifactId, ruleset);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to apply Confluent contract data for {}: {}",
+                    ga, e.getMessage());
+        }
     }
 }

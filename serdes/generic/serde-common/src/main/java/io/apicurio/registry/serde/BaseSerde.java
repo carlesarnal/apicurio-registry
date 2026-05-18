@@ -27,12 +27,14 @@ public class BaseSerde<T, U> implements AutoCloseable {
     protected boolean key; // do we handle key or value with this ser/de?
     protected IdHandler idHandler;
     private SchemaResolver<T, U> schemaResolver;
+    private RegistryClientFacade clientFacade;
 
     public BaseSerde() {
         super();
     }
 
     public BaseSerde(RegistryClientFacade clientFacade) {
+        this.clientFacade = clientFacade;
         this.schemaResolver = new DefaultSchemaResolver<>();
         this.schemaResolver.setClientFacade(clientFacade);
     }
@@ -42,12 +44,14 @@ public class BaseSerde<T, U> implements AutoCloseable {
     }
 
     public BaseSerde(RegistryClientFacade clientFacade, SchemaResolver<T, U> schemaResolver) {
+        this.clientFacade = clientFacade;
         this.schemaResolver = schemaResolver;
         this.schemaResolver.setClientFacade(clientFacade);
     }
 
     public BaseSerde(RegistryClientFacade clientFacade, ArtifactReferenceResolverStrategy<T, U> strategy,
                      SchemaResolver<T, U> schemaResolver) {
+        this.clientFacade = clientFacade;
         this.schemaResolver = schemaResolver;
         this.schemaResolver.setClientFacade(clientFacade);
         this.schemaResolver.setArtifactResolverStrategy(strategy);
@@ -84,6 +88,10 @@ public class BaseSerde<T, U> implements AutoCloseable {
         // isKey is passed via config property
         configs.put(SerdeConfig.IS_KEY, isKey);
         this.schemaResolver.configure(configs, schemaParser);
+    }
+
+    public RegistryClientFacade getClientFacade() {
+        return clientFacade;
     }
 
     public SchemaResolver<T, U> getSchemaResolver() {
