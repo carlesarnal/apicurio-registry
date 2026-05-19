@@ -192,6 +192,122 @@ Mode is stored as a raw string in the `DynamicConfigProperty` system. Invalid mo
 
 ---
 
+## Data Contracts Compatibility (Phase 8)
+
+### Overview
+
+Confluent Schema Registry 7.x+ supports data contracts: `metadata` and `ruleSet` fields in the schema registration payload. These are stored with each schema version and returned on retrieval. The ccompat layer now implements this behavior.
+
+### Wire Format
+
+Confluent's `RegisterSchemaRequest` includes two additional fields:
+
+```json
+{
+  "schema": "...",
+  "schemaType": "AVRO",
+  "metadata": {
+    "tags": { "fieldPath": ["TAG1", "TAG2"] },
+    "properties": { "owner": "team-a", "classification": "INTERNAL" },
+    "sensitive": ["password"]
+  },
+  "ruleSet": {
+    "domainRules": [
+      { "name": "check", "kind": "CONDITION", "type": "CEL",
+        "mode": "WRITE", "expr": "message.amount > 0",
+        "onFailure": "ERROR" }
+    ],
+    "migrationRules": []
+  }
+}
+```
+
+Schema retrieval (`GET /subjects/{subject}/versions/{version}`) returns these fields in the response.
+
+### Translation Layer
+
+`ConfluentContractTranslator` provides bidirectional mapping between the Confluent wire format and Apicurio's internal model:
+
+**Inbound (Confluent → Apicurio):**
+- `metadata.properties` → artifact labels with prefix `contract.{contractId}.{key}`
+- `metadata.tags` → version labels with format `field-tag.{contractId}:{fieldPath}|{tagName}`
+- `metadata.sensitive` → labels with prefix `contract.{contractId}.sensitive.{field}`
+- `ruleSet.domainRules/migrationRules` → `ContractRuleSetDto` via `translateRuleSet()`
+- `doc` field → stored as `_doc` param (Apicurio rules have no `doc` field)
+- Confluent mode `UPDOWN` → Apicurio mode `WRITEREAD`
+
+**Outbound (Apicurio → Confluent):**
+- Artifact labels → `metadata.properties`
+- Version labels with `field-tag.*` prefix → `metadata.tags`
+- `ContractRuleSetDto` → `ruleSet` via `toConfluentRuleSet()`
+- Apicurio mode `WRITEREAD` → Confluent mode `UPDOWN`
+
+### Key Decisions
+
+#### 7. Store metadata as labels, ruleSet as contract rules
+
+**Decision:** Confluent `metadata.properties` are stored as Apicurio artifact labels. `ruleSet` is stored via the existing `ContractRuleSetDto`/`contract_rules` table.
+
+**Rationale:** Reuses existing infrastructure — no new tables or storage mechanisms. Labels provide the same key-value semantics as Confluent's `metadata.properties`. Contract rules already support domain/migration rule separation, kind, mode, expression, and action fields.
+
+**Trade-off:** Tags are lowercased during storage (label keys are case-insensitive). Confluent tags may be case-sensitive.
+
+#### 8. Tags stored as version labels with JSON column rebuild
+
+**Decision:** Field-level tags from `metadata.tags` are stored as version-level labels (in `version_labels` table) with a `field-tag.` prefix.
+
+**Rationale:** Tags are per-version (a field's PII status may change between schema versions). The `mergeVersionLabels` method now rebuilds the JSON labels column on the `versions` table after insert, matching the existing pattern for artifact labels.
+
+**Fix applied:** `mergeVersionLabels` was missing the JSON column rebuild step — `updateVersionLabels` and `selectVersionLabels` SQL statements were added.
+
+#### 9. Generated beans use `additionalProperties: true`
+
+**Decision:** The OpenAPI spec defines `metadata`, `ruleSet`, `defaultMetadata`, `defaultRuleSet`, `overrideMetadata`, `overrideRuleSet` with `additionalProperties: true`.
+
+**Rationale:** The `apicurio-codegen-maven-plugin` generates empty beans for `type: object` without `additionalProperties`. With `additionalProperties: true`, it generates `@JsonAnySetter`/`@JsonAnyGetter` methods, allowing arbitrary key-value data to flow through.
+
+**Trade-off:** Bean types are `Map`-like wrappers rather than strongly typed. Jackson `ObjectMapper.convertValue()` is used to convert between `Map<String,Object>` and the generated beans.
+
+#### 10. Enrichment on retrieval, not at registration time
+
+**Decision:** Schema responses are enriched with `metadata` and `ruleSet` at retrieval time by reading from labels and contract rules storage.
+
+**Rationale:** Avoids duplicating data. The source of truth is always the labels and contract rules tables. Changes via the v3 API (e.g., updating contract metadata directly) are automatically reflected in ccompat responses.
+
+**Trade-off:** Additional storage reads on every schema GET. Acceptable because ccompat GETs already read artifact metadata and content.
+
+#### 11. Config endpoint stores defaultRuleSet as global contract rules
+
+**Decision:** `defaultRuleSet` from `PUT /config` is stored via `storage.setGlobalContractRuleset()`.
+
+**Rationale:** Global contract rules are already supported by the v3 API (`/admin/contracts/ruleset`). The ccompat config endpoint reuses this storage, avoiding a new config subsystem.
+
+#### 12. CEL library incompatibility with Confluent kafka-schema-rules
+
+**Decision:** Confluent's `kafka-schema-rules` CEL rule executor cannot run in the same JVM as Apicurio's `cel-standalone:0.6.0`.
+
+**Root cause:** `cel-standalone` relocates protobuf types to `org.projectnessie.cel.relocated.com.google.api.expr.v1alpha1.*`. Confluent's CEL executor expects unrelocated `com.google.api.expr.v1alpha1.*`. The `Decls.newObjectType()` method returns an incompatible type.
+
+**Impact:** Client-side CEL rule execution with Confluent's own SerDes doesn't work against Apicurio when `cel-standalone` is on the classpath. Server-side CEL execution (via Apicurio's own rule engine) works correctly.
+
+**Mitigation:** Migrate `contracts-rules` module from `cel-standalone` to `cel-tools` + `cel-core` (non-relocated). This is tracked as future work.
+
+### Known Limitations (Data Contracts)
+
+#### 8. No merge semantics for default/override config yet
+
+Confluent merges `defaultMetadata` → schema metadata → `overrideMetadata` during registration. The current implementation stores `defaultRuleSet` via global rules but does not perform the three-step merge during schema registration.
+
+#### 9. No schema-less registration
+
+Confluent allows registering `ruleSet` without a `schema` field (binds to latest version). Not yet implemented.
+
+#### 10. Subject-level config for contract fields not implemented
+
+`PUT /config/{subject}` handles compatibility level but not `defaultRuleSet`/`defaultMetadata` at the subject level.
+
+---
+
 ## Future Work
 
 - Resolve Avro compaction performance issue (move to write-time or caching)
@@ -200,3 +316,7 @@ Mode is stored as a raw string in the `DynamicConfigProperty` system. Invalid mo
 - Investigate the `lookupVersion_unregisteredSchema` 405 vs 404 difference
 - Add distributed locking for multi-instance deployments if needed
 - Consider promoting mode to a first-class storage entity
+- Migrate `contracts-rules` from `cel-standalone` to `cel-tools` for Confluent SerDes CEL compatibility
+- Implement merge semantics for defaultMetadata/overrideMetadata during registration
+- Implement schema-less registration (metadata/ruleSet only, bind to latest)
+- Subject-level config for contract fields
