@@ -619,10 +619,13 @@ public class SubjectsResourceImpl extends AbstractResource implements SubjectsRe
 
             io.apicurio.registry.storage.dto.ContractRuleSetDto ruleset =
                     contractStorage.getArtifactContractRuleset(groupId, artifactId);
-            Map<String, Object> ruleSetMap = contractTranslator.toConfluentRuleSet(ruleset);
-            if (ruleSetMap != null) {
-                schema.setRuleSet(mapper.convertValue(ruleSetMap,
-                        io.apicurio.registry.ccompat.rest.v7.beans.RuleSet.class));
+            if (ruleset != null && ((ruleset.getDomainRules() != null && !ruleset.getDomainRules().isEmpty())
+                    || (ruleset.getMigrationRules() != null && !ruleset.getMigrationRules().isEmpty()))) {
+                Map<String, Object> ruleSetMap = contractTranslator.toConfluentRuleSet(ruleset);
+                if (ruleSetMap != null) {
+                    schema.setRuleSet(mapper.convertValue(ruleSetMap,
+                            io.apicurio.registry.ccompat.rest.v7.beans.RuleSet.class));
+                }
             }
         } catch (Exception e) {
             log.debug("Could not enrich schema with contract data: {}", e.getMessage());
@@ -662,15 +665,11 @@ public class SubjectsResourceImpl extends AbstractResource implements SubjectsRe
                 Map<String, String> tagLabels = contractTranslator.translateTagsToVersionLabels(
                         metadata, contractId);
                 if (!tagLabels.isEmpty()) {
-                    try {
-                        var versions = contractStorage.getArtifactVersions(groupId, artifactId);
-                        if (versions != null && !versions.isEmpty()) {
-                            String latestVersion = versions.get(versions.size() - 1);
-                            contractStorage.mergeVersionLabels(groupId, artifactId,
-                                    latestVersion, "field-tag.", tagLabels);
-                        }
-                    } catch (Exception tagEx) {
-                        log.debug("Could not store version tags: {}", tagEx.getMessage());
+                    var versions = contractStorage.getArtifactVersions(groupId, artifactId);
+                    if (versions != null && !versions.isEmpty()) {
+                        String latestVersion = versions.get(versions.size() - 1);
+                        contractStorage.mergeVersionLabels(groupId, artifactId,
+                                latestVersion, "field-tag.", tagLabels);
                     }
                 }
             }

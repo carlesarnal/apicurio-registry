@@ -821,6 +821,10 @@ public interface SqlStatements {
 
     String selectContractRulesByTag();
 
+    String updateVersionLabels();
+
+    String selectVersionLabels();
+
     String selectGlobalContractRules();
 
     String deleteGlobalContractRules();

@@ -978,7 +978,23 @@ public abstract class AbstractSqlRegistryStorage implements RegistryStorage {
                                 .bind(1, key)
                                 .bind(2, limitStr(entry.getValue(), 512)).execute();
                     }
+                    handle.createUpdate(sqlStatements.updateVersionLabels())
+                            .bind(0, RegistryContentUtils.serializeLabels(
+                                    rebuildVersionLabels(handle, globalId)))
+                            .bind(1, globalId).execute();
                 });
+    }
+
+    private Map<String, String> rebuildVersionLabels(
+            io.apicurio.registry.storage.impl.sql.jdb.Handle handle, long globalId) {
+        Map<String, String> result = new java.util.LinkedHashMap<>();
+        handle.createQuery(sqlStatements.selectVersionLabels())
+                .bind(0, globalId)
+                .map(rs -> {
+                    result.put(rs.getString("labelKey"), rs.getString("labelValue"));
+                    return null;
+                }).list();
+        return result;
     }
 
     @Override

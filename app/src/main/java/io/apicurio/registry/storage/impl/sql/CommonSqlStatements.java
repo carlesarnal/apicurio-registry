@@ -1489,6 +1489,16 @@ public abstract class CommonSqlStatements implements SqlStatements {
     }
 
     @Override
+    public String updateVersionLabels() {
+        return "UPDATE versions SET labels = ? WHERE globalId = ?";
+    }
+
+    @Override
+    public String selectVersionLabels() {
+        return "SELECT labelKey, labelValue FROM version_labels WHERE globalId = ?";
+    }
+
+    @Override
     public String selectGlobalContractRules() {
         return "SELECT r.* FROM contract_rules r WHERE r.groupId = '__GLOBAL__' AND r.artifactId = '__GLOBAL__' AND r.globalId IS NULL ORDER BY r.ruleCategory, r.orderIndex";
     }
