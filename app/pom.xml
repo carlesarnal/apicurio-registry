@@ -222,6 +222,18 @@
       <artifactId>kafka-avro-serializer</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- kafka-schema-rules: Confluent's CEL executor uses unrelocated protobuf types
+         which are ABI-incompatible with cel-standalone 0.6.0 (relocated types).
+         CEL rule execution with Confluent SerDes is disabled in tests until
+         contracts-rules migrates from cel-standalone to cel-tools. -->
+    <!--
+    <dependency>
+      <groupId>io.confluent</groupId>
+      <artifactId>kafka-schema-rules</artifactId>
+      <version>${confluent.version}</version>
+      <scope>test</scope>
+    </dependency>
+    -->
     <dependency>
       <groupId>io.confluent</groupId>
       <artifactId>kafka-protobuf-serializer</artifactId>
