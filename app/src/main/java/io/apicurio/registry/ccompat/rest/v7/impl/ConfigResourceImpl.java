@@ -20,10 +20,12 @@ import io.apicurio.registry.rules.compatibility.CompatibilityLevel;
 import io.apicurio.registry.storage.dto.RuleConfigurationDto;
 import io.apicurio.registry.storage.error.RuleNotFoundException;
 import io.apicurio.registry.types.RuleType;
+import io.apicurio.registry.storage.dto.ContractRuleSetDto;
 import io.apicurio.registry.utils.Functional.Runnable1Ex;
 import jakarta.inject.Inject;
 import jakarta.interceptor.Interceptors;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -37,7 +39,8 @@ public class ConfigResourceImpl extends AbstractResource implements ConfigResour
     @Inject
     RulesProperties rulesProperties;
 
-    //FIMXE: The configuration implementation is not complete. We only do global and artifact level compatibility. Confluent has more options.
+    @Inject
+    ConfluentContractTranslator contractTranslator;
 
     private GlobalConfigResponse getCompatibilityLevel(Supplier<String> supplyLevel) {
         try {
@@ -83,19 +86,41 @@ public class ConfigResourceImpl extends AbstractResource implements ConfigResour
     @MethodMetadata(extractParameters = { "0", MPK_RULE })
     @Audited
     @Authorized(style = AuthorizedStyle.None, level = AuthorizedLevel.Admin)
+    @SuppressWarnings("unchecked")
     public ConfigUpdateResponse updateGlobalConfig(ConfigUpdateRequest request) {
-        updateCompatibilityLevel(request.getCompatibility(), dto -> {
-            if (!doesGlobalRuleExist(RuleType.COMPATIBILITY)) {
-                storage.createGlobalRule(RuleType.COMPATIBILITY, dto);
+        if (request.getCompatibility() != null) {
+            updateCompatibilityLevel(request.getCompatibility(), dto -> {
+                if (!doesGlobalRuleExist(RuleType.COMPATIBILITY)) {
+                    storage.createGlobalRule(RuleType.COMPATIBILITY, dto);
+                } else {
+                    storage.updateGlobalRule(RuleType.COMPATIBILITY, dto);
+                }
+            });
+        }
+
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+
+        if (request.getDefaultRuleSet() != null) {
+            Map<String, Object> ruleSetMap = mapper.convertValue(request.getDefaultRuleSet(), Map.class);
+            ContractRuleSetDto ruleset = contractTranslator.translateRuleSet(ruleSetMap);
+            if (ruleset != null) {
+                storage.setGlobalContractRuleset(ruleset);
             }
-            else {
-                storage.updateGlobalRule(RuleType.COMPATIBILITY, dto);
-            }
-        });
+        }
 
         ConfigUpdateResponse response = new ConfigUpdateResponse();
         response.setCompatibility(request.getCompatibility());
         response.setNormalize(request.getNormalize() != null ? request.getNormalize() : false);
+
+        ContractRuleSetDto globalRuleset = storage.getGlobalContractRuleset();
+        if (globalRuleset != null
+                && ((globalRuleset.getDomainRules() != null && !globalRuleset.getDomainRules().isEmpty())
+                || (globalRuleset.getMigrationRules() != null && !globalRuleset.getMigrationRules().isEmpty()))) {
+            Map<String, Object> ruleSetMap = contractTranslator.toConfluentRuleSet(globalRuleset);
+            response.setDefaultRuleSet(mapper.convertValue(ruleSetMap,
+                    io.apicurio.registry.ccompat.rest.v7.beans.DefaultRuleSet.class));
+        }
+
         return response;
     }
 

@@ -3807,6 +3807,30 @@
           "normalize": {
             "type": "boolean",
             "description": "Whether schemas are normalized during registration and lookups."
+          },
+          "compatibilityGroup": {
+            "type": "string",
+            "description": "Group name for compatibility scoping."
+          },
+          "defaultMetadata": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Default metadata applied during schema registration."
+          },
+          "overrideMetadata": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Override metadata applied during schema registration."
+          },
+          "defaultRuleSet": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Default ruleset applied during schema registration."
+          },
+          "overrideRuleSet": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Override ruleset applied during schema registration."
           }
         },
         "example": {

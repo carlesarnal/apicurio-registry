@@ -203,6 +203,30 @@ public class CCompatDataContractsTest extends AbstractResourceTestBase {
                 .body("ruleSet.domainRules[1].name", equalTo("r2"));
     }
 
+    @Test
+    public void testGlobalConfigDefaultRuleSet() {
+        given().when().contentType(CT_JSON)
+                .body("{\"compatibility\":\"BACKWARD\","
+                        + "\"defaultRuleSet\":{\"domainRules\":["
+                        + "{\"name\":\"global-pii\",\"kind\":\"TRANSFORM\",\"type\":\"CEL_FIELD\","
+                        + "\"mode\":\"WRITE\",\"tags\":[\"PII\"],\"expr\":\"\\\"XXXXX\\\"\","
+                        + "\"onFailure\":\"ERROR\"}],"
+                        + "\"migrationRules\":[]}}")
+                .put("/ccompat/v7/config")
+                .then().statusCode(200)
+                .body("compatibility", equalTo("BACKWARD"))
+                .body("defaultRuleSet.domainRules", hasSize(1))
+                .body("defaultRuleSet.domainRules[0].name", equalTo("global-pii"));
+
+        given().when()
+                .delete("/ccompat/v7/config")
+                .then().statusCode(200);
+
+        given().when()
+                .delete("/registry/v3/admin/contracts/ruleset")
+                .then().statusCode(204);
+    }
+
     private String escapeJson(String s) {
         return "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
     }
