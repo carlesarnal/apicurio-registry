@@ -26,6 +26,7 @@ import io.apicurio.registry.metrics.health.readiness.ResponseTimeoutReadinessChe
 import io.apicurio.registry.model.GA;
 import io.apicurio.registry.rest.MethodMetadata;
 import io.apicurio.registry.storage.dto.ArtifactSearchResultsDto;
+import io.apicurio.registry.storage.dto.ArtifactMetaDataDto;
 import io.apicurio.registry.storage.dto.ArtifactVersionMetaDataDto;
 import io.apicurio.registry.storage.dto.OrderBy;
 import io.apicurio.registry.storage.dto.OrderDirection;
@@ -539,10 +540,12 @@ public class SubjectsResourceImpl extends AbstractResource implements SubjectsRe
                                 .versionOrder(storedArtifact.getVersionOrder())
                                 .contentId(storedArtifact.getContentId()).content(formattedContent)
                                 .references(storedArtifact.getReferences()).build();
-                        return converter.convert(artifactId, formattedArtifact, amd.getArtifactType());
+                        Schema result = converter.convert(artifactId, formattedArtifact, amd.getArtifactType());
+                        return enrichWithContractData(result, groupId, artifactId, amd.getVersion());
                     }
 
-                    return converter.convert(artifactId, storedArtifact, amd.getArtifactType());
+                    Schema result = converter.convert(artifactId, storedArtifact, amd.getArtifactType());
+                    return enrichWithContractData(result, groupId, artifactId, amd.getVersion());
                 } else {
                     throw new VersionNotFoundException(groupId, artifactId, version);
                 }
@@ -593,6 +596,40 @@ public class SubjectsResourceImpl extends AbstractResource implements SubjectsRe
                 .collect(Collectors.toList());
     }
 
+    private Schema enrichWithContractData(Schema schema, String groupId,
+            String artifactId, String version) {
+        try {
+            var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+
+            ArtifactMetaDataDto artifactMeta = contractStorage.getArtifactMetaData(groupId, artifactId);
+            Map<String, String> artifactLabels = artifactMeta.getLabels() != null
+                    ? artifactMeta.getLabels() : java.util.Map.of();
+
+            ArtifactVersionMetaDataDto versionMeta = contractStorage.getArtifactVersionMetaData(
+                    groupId, artifactId, version);
+            Map<String, String> versionLabels = versionMeta.getLabels() != null
+                    ? versionMeta.getLabels() : java.util.Map.of();
+
+            Map<String, Object> metadata = contractTranslator.toConfluentMetadata(
+                    artifactLabels, versionLabels);
+            if (metadata != null && !metadata.isEmpty()) {
+                schema.setMetadata(mapper.convertValue(metadata,
+                        io.apicurio.registry.ccompat.rest.v7.beans.Metadata.class));
+            }
+
+            io.apicurio.registry.storage.dto.ContractRuleSetDto ruleset =
+                    contractStorage.getArtifactContractRuleset(groupId, artifactId);
+            Map<String, Object> ruleSetMap = contractTranslator.toConfluentRuleSet(ruleset);
+            if (ruleSetMap != null) {
+                schema.setRuleSet(mapper.convertValue(ruleSetMap,
+                        io.apicurio.registry.ccompat.rest.v7.beans.RuleSet.class));
+            }
+        } catch (Exception e) {
+            log.debug("Could not enrich schema with contract data: {}", e.getMessage());
+        }
+        return schema;
+    }
+
     @SuppressWarnings("unchecked")
     private void applyConfluentContractData(GA ga, RegisterSchemaRequest request) {
         try {
@@ -603,12 +640,16 @@ public class SubjectsResourceImpl extends AbstractResource implements SubjectsRe
                 return;
             }
 
+            var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
             String groupId = ga.getRawGroupIdWithNull();
             String artifactId = ga.getRawArtifactId();
             String contractId = "default";
 
-            if (rawMetadata instanceof Map) {
-                Map<String, Object> metadata = (Map<String, Object>) rawMetadata;
+            Map<String, Object> metadata = null;
+            if (rawMetadata != null) {
+                metadata = mapper.convertValue(rawMetadata, Map.class);
+            }
+            if (metadata != null && !metadata.isEmpty()) {
 
                 Map<String, String> labels = contractTranslator.translateMetadataToLabels(
                         metadata, contractId);
@@ -621,14 +662,23 @@ public class SubjectsResourceImpl extends AbstractResource implements SubjectsRe
                 Map<String, String> tagLabels = contractTranslator.translateTagsToVersionLabels(
                         metadata, contractId);
                 if (!tagLabels.isEmpty()) {
-                    contractStorage.mergeVersionLabels(groupId, artifactId, "branch=latest",
-                            "field-tag.", tagLabels);
+                    try {
+                        var versions = contractStorage.getArtifactVersions(groupId, artifactId);
+                        if (versions != null && !versions.isEmpty()) {
+                            String latestVersion = versions.get(versions.size() - 1);
+                            contractStorage.mergeVersionLabels(groupId, artifactId,
+                                    latestVersion, "field-tag.", tagLabels);
+                        }
+                    } catch (Exception tagEx) {
+                        log.debug("Could not store version tags: {}", tagEx.getMessage());
+                    }
                 }
             }
 
-            if (rawRuleSet instanceof Map) {
+            if (rawRuleSet != null) {
+                Map<String, Object> ruleSetMap = mapper.convertValue(rawRuleSet, Map.class);
                 io.apicurio.registry.storage.dto.ContractRuleSetDto ruleset =
-                        contractTranslator.translateRuleSet((Map<String, Object>) rawRuleSet);
+                        contractTranslator.translateRuleSet(ruleSetMap);
                 if (ruleset != null) {
                     contractStorage.setArtifactContractRuleset(groupId, artifactId, ruleset);
                 }

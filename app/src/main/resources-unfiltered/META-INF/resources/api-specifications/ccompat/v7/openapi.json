@@ -3388,10 +3388,12 @@
           },
           "metadata": {
             "type": "object",
+            "additionalProperties": true,
             "description": "Metadata associated with the schema (tags, properties, sensitive)."
           },
           "ruleSet": {
             "type": "object",
+            "additionalProperties": true,
             "description": "Ruleset configuration for the schema (domainRules, migrationRules)."
           }
         }
@@ -3419,10 +3421,12 @@
           },
           "metadata": {
             "type": "object",
+            "additionalProperties": true,
             "description": "Optional metadata associated with the schema."
           },
           "ruleSet": {
             "type": "object",
+            "additionalProperties": true,
             "description": "Optional ruleset configuration for the schema."
           }
         }
