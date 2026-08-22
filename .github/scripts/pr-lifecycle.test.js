@@ -208,6 +208,31 @@ test('Verify failure at ready-to-merge reverts to ready-for-review', async () =>
   assert.equal(w.calls.merges.length, 0);
 });
 
+test('tree-identical force-push (rebase) preserves verification state', async () => {
+  const w = makeWorld([LABELS.READY_TO_MERGE, LABELS.TESTED, LABELS.FULL_VERIFIED], { approved: true });
+  w.github.rest.repos = { compareCommitsWithBasehead: async () => ({ data: { files: [], ahead_by: 0 } }) };
+  const ctx = {
+    repo: { owner: 'Apicurio', repo: 'apicurio-registry' },
+    payload: { before: 'oldsha', after: 'newsha', pull_request: { number: 42, draft: false, labels: [], user: { login: 'contributor' }, head: { sha: 'newsha' } } },
+  };
+  await lifecycle.handlePrSynchronize({ github: w.github, context: ctx, core: w.core });
+  // No state should be touched
+  assert.equal(w.calls.removed.length, 0);
+  assert.ok(!w.calls.added.includes(LABELS.READY_FOR_REVIEW));
+});
+
+test('rebase onto new upstream commits (tree changed) resets verification', async () => {
+  const w = makeWorld([LABELS.READY_TO_MERGE, LABELS.TESTED, LABELS.FULL_VERIFIED], { approved: true });
+  w.github.rest.repos = { compareCommitsWithBasehead: async () => ({ data: { files: [{ filename: 'pom.xml' }], ahead_by: 2 } }) };
+  const labels = [...w.labels];
+  const ctx = {
+    repo: { owner: 'Apicurio', repo: 'apicurio-registry' },
+    payload: { before: 'oldsha', after: 'newsha', pull_request: { number: 42, draft: false, labels: labels.map(n => ({ name: n })), user: { login: 'contributor' }, head: { sha: 'newsha' } } },
+  };
+  await lifecycle.handlePrSynchronize({ github: w.github, context: ctx, core: w.core });
+  assert.ok(w.calls.removed.includes(LABELS.TESTED));
+});
+
 test('Verify result with stale SHA is ignored', async () => {
   const w = makeWorld([LABELS.READY_TO_MERGE, LABELS.TESTED], { approved: true });
   const ctx = runPayload('Verify', 'success');

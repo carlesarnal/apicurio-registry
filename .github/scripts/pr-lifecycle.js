@@ -835,6 +835,28 @@ async function handlePrOpened({ github, context, core }) {
   await initNewPr(github, owner, repo, api, config, pr, core);
 }
 
+// True when a pull_request synchronize event rewrote the branch to a commit whose
+// tree is identical to the previous head's tree — i.e. a content-identical force-push
+// (plain rebase onto the same base). The payload's `before` SHA is the previous head.
+async function isTreeIdenticalPush(github, context, core) {
+  const before = context.payload.before;
+  const after = context.payload.after;
+  if (!before || !after || before === after) {
+    return false;
+  }
+  try {
+    const { owner, repo } = context.repo;
+    const { data } = await github.rest.repos.compareCommitsWithBasehead({
+      owner, repo, basehead: `${before}...${after}`,
+    });
+    // Zero changed files + zero commits reachable only on `after` means identical trees.
+    return (data.files || []).length === 0 && data.ahead_by === 0;
+  } catch (e) {
+    core.warning(`PR tree comparison failed (${e.message}), treating as a real change`);
+    return false;
+  }
+}
+
 async function handlePrSynchronize({ github, context, core }) {
   const pr = context.payload.pull_request;
   const { owner, repo } = context.repo;
@@ -843,6 +865,16 @@ async function handlePrSynchronize({ github, context, core }) {
   // Drafts are outside the lifecycle — pushes to a draft are not our business.
   if (pr.draft) {
     core.info(`PR #${pr.number} is a draft — ignoring push`);
+    return;
+  }
+
+  // A force-push with the same tree as the previous head is a content-identical
+  // rebase: nothing to retest, so keep the SHA-scoped verification state
+  // (lifecycle/tested, lifecycle/full-verified) instead of wiping it and
+  // re-running the full suite. A rebase that picks up new upstream commits
+  // changes the tree and is handled normally.
+  if (await isTreeIdenticalPush(github, context, core)) {
+    core.info(`PR #${pr.number} force-push with identical tree (rebase) — preserving verification state`);
     return;
   }
 
