@@ -354,8 +354,8 @@ jobs:
   #
   # Aggregates every job above. Passes when all of them succeeded or were
   # appropriately skipped by Decide (e.g. during PR review, when the full
-  # suite does not run) — see the live ready-to-merge check below for why
-  # that alone is not sufficient for a required check.
+  # suite does not run) — see the lifecycle-ready check below for why that
+  # alone is not sufficient for a required check.
   # ============================================================================
   gate:
     name: Verification Gate
@@ -377,37 +377,33 @@ jobs:
           fi
           echo "All jobs passed or were appropriately skipped"
 
-      # Live, direct check of the PR's CURRENT lifecycle state. This job's
-      # own Decide computed lifecycle-ready once already (gating every job
-      # above), so in principle it cannot disagree with itself — but a
-      # skipped required job still counts as "passing" for branch
-      # protection, and every job above is skipped until the PR is ready to
-      # merge. Without this check, native "Merge pull request" would be
-      # unblocked as soon as Decide+Gate complete, regardless of whether the
-      # full suite ever actually ran for the commit.
-      - name: Verify PR is actually ready to merge
-        if: github.event_name != 'push'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+      # Every job above is skipped by Decide unless lifecycle-ready is true,
+      # and a skipped required job counts as "passing" for branch protection
+      # — so the "Evaluate jobs" step above alone would let this Gate pass
+      # trivially throughout PR review, before the full suite ever runs,
+      # unblocking native "Merge pull request" the whole time. Failing here
+      # instead when lifecycle-ready is false is the honest signal: this
+      # required check has not actually been satisfied yet.
+      #
+      # This deliberately checks THIS run's own Decide output rather than
+      # re-fetching the PR's live label state: Decide is computed once, at
+      # the very start of the run, and is exactly what gated every other job
+      # above, so this check can never disagree with what the rest of the
+      # run actually did. An earlier version re-fetched live state here
+      # instead, on the theory that it should also catch a PR promoted while
+      # this run was still executing — but Decide and a later live re-fetch
+      # can genuinely disagree about a run that started before promotion,
+      # producing a stale "pass" for a suite that Decide had already skipped.
+      # Using only the static value removes that race entirely: this run
+      # either had the full suite required from the start, or it did not,
+      # full stop. A PR promoted mid-run is handled correctly anyway — the
+      # orchestrator's force-retrigger on promotion produces a fresh run
+      # whose own Decide correctly sees the promoted state.
+      - name: Verify this run's Decide required the full suite
+        if: github.event_name != 'push' && needs.decide.outputs.lifecycle-ready == 'false'
         run: |
-          # Mirrors verify-decide.yaml's own lifecycle-scope logic exactly
-          # (orchestrator/disabled bypasses the lifecycle label dance unless
-          # DO NOT MERGE is also present).
-          READY=$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '
-            [.labels[].name] as $labels |
-            ($labels | index("lifecycle/ready-to-merge") != null) as $readyToMerge |
-            ($labels | index("orchestrator/disabled") != null) as $orchestratorDisabled |
-            ($labels | index("DO NOT MERGE") != null) as $doNotMerge |
-            if $orchestratorDisabled then (if $doNotMerge then false else true end)
-            else $readyToMerge
-            end')
-          if [ "$READY" != "true" ]; then
-            echo "::error::PR #$PR_NUMBER is not lifecycle/ready-to-merge yet — the full suite has not run for this SHA. This is expected during PR review, not a failure of anything: promotion happens automatically once the fast gate (Quick Check) passes (immediately for trusted/auto-accepted authors, or after an approving review for everyone else), and this Gate will pass once the full suite subsequently completes for the promoted commit."
-            exit 1
-          fi
-          echo "PR #$PR_NUMBER is lifecycle/ready-to-merge"
+          echo "::error::This run's Decide did not require the full suite (lifecycle-ready=false) — the PR is not lifecycle/ready-to-merge yet, or was not when this run started. This is expected during PR review, not a failure of anything: promotion happens automatically once the fast gate (Quick Check) passes (immediately for trusted/auto-accepted authors, or after an approving review for everyone else), and the orchestrator's force-retrigger on promotion produces a fresh run whose Decide will see the promoted state and pass."
+          exit 1
 
   # ============================================================================
   # PUBLISH: Push images (only on push to main)
