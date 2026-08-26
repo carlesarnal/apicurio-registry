@@ -8,6 +8,7 @@ import io.apicurio.registry.content.TypedContent;
 import io.apicurio.registry.content.refs.ExternalReference;
 import io.apicurio.registry.content.refs.ReferenceFinder;
 import io.apicurio.registry.logging.Logged;
+import io.smallrye.common.annotation.RunOnVirtualThread;
 import io.apicurio.registry.metrics.health.liveness.ResponseErrorLivenessCheck;
 import io.apicurio.registry.metrics.health.readiness.ResponseTimeoutReadinessCheck;
 import io.apicurio.registry.rest.v3.ContentResource;
@@ -38,6 +39,7 @@ import java.util.stream.Collectors;
 @ApplicationScoped
 @Interceptors({ ResponseErrorLivenessCheck.class, ResponseTimeoutReadinessCheck.class })
 @Logged
+@RunOnVirtualThread
 public class ContentResourceImpl implements ContentResource {
 
     @Inject

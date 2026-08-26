@@ -20,6 +20,7 @@ import io.apicurio.registry.rest.v3.beans.OdcsContractSummary;
 import io.apicurio.registry.rest.v3.beans.OdcsProjectionSummary;
 import io.apicurio.registry.content.TypedContent;
 import io.apicurio.registry.logging.Logged;
+import io.smallrye.common.annotation.RunOnVirtualThread;
 import io.apicurio.registry.logging.audit.Audited;
 import io.apicurio.registry.metrics.OTelMetricsProvider;
 import io.apicurio.registry.metrics.health.liveness.ResponseErrorLivenessCheck;
@@ -115,6 +116,7 @@ import static java.util.stream.Collectors.toList;
 @Interceptors({ResponseErrorLivenessCheck.class, ResponseTimeoutReadinessCheck.class})
 @Logged
 // TODO: Split this into multiple implementation classes, similar to the storage repositories.
+@RunOnVirtualThread
 public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsResource {
 
     private static final ObjectMapper JSON_MAPPER = new ObjectMapper();

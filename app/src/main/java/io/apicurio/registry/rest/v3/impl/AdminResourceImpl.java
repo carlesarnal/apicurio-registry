@@ -11,6 +11,7 @@ import io.apicurio.registry.auth.AuthorizedStyle;
 import io.apicurio.registry.auth.RoleBasedAccessApiOperation;
 import io.apicurio.registry.cdi.Current;
 import io.apicurio.registry.logging.Logged;
+import io.smallrye.common.annotation.RunOnVirtualThread;
 import io.apicurio.registry.logging.audit.Audited;
 import io.apicurio.registry.metrics.health.liveness.ResponseErrorLivenessCheck;
 import io.apicurio.registry.metrics.health.readiness.ResponseTimeoutReadinessCheck;
@@ -118,6 +119,7 @@ import static io.apicurio.registry.utils.DtoUtil.registryAuthPropertyToApp;
 @ApplicationScoped
 @Interceptors({ResponseErrorLivenessCheck.class, ResponseTimeoutReadinessCheck.class})
 @Logged
+@RunOnVirtualThread
 public class AdminResourceImpl implements AdminResource {
 
     private static final String TELEMETRY_NOT_ENABLED = "Usage telemetry is not enabled on this registry instance.";

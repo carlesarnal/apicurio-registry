@@ -4,6 +4,7 @@ import io.apicurio.registry.auth.Authorized;
 import io.apicurio.registry.auth.AuthorizedLevel;
 import io.apicurio.registry.auth.AuthorizedStyle;
 import io.apicurio.registry.logging.Logged;
+import io.smallrye.common.annotation.RunOnVirtualThread;
 import io.apicurio.registry.metrics.health.liveness.ResponseErrorLivenessCheck;
 import io.apicurio.registry.metrics.health.readiness.ResponseTimeoutReadinessCheck;
 import io.apicurio.registry.rest.v3.impl.shared.DataExporter;
@@ -26,6 +27,7 @@ import jakarta.ws.rs.core.Response;
 @Interceptors({ ResponseErrorLivenessCheck.class, ResponseTimeoutReadinessCheck.class })
 @Logged
 @Path("/apis/registry/v3/downloads")
+@RunOnVirtualThread
 public class DownloadsResourceImpl {
 
     @Inject
