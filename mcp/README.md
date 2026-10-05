@@ -132,6 +132,22 @@ The MCP server currently supports the following operations:
   filters, and returns matching entries in the ARD entry format. Requires ARD support to
   be enabled on the target registry (`apicurio.ard.enabled=true`); otherwise the call
   fails with an error indicating ARD support is disabled.
+- Consumer impact check - `check_consumer_impact` (read-only, AVRO) dry-runs the configured
+  rules and checks a candidate schema against the artifact's **declared consumers**: can each
+  consumer, on the reader version it runs today, read the new events, and does it still receive
+  every field it requires (present, not nullable)? A configured BACKWARD rule accepts changes such
+  as a renamed field with a default, which still break consumers that upgrade after the producer;
+  this tool reports them. Consumers are declared in a JSON artifact next to the schema, by default
+  `<artifactId>.consumers` in the same group:
+
+  ```json
+  {"consumers": [{"name": "billing", "owner": "team-billing", "readerVersion": "1",
+                  "requiredFields": ["orderId", "amount", "currency"]}]}
+  ```
+
+  A `null` `readerVersion` or `requiredFields` means "unknown" and yields verdict `INCOMPLETE`,
+  never `SAFE_FOR_DECLARED_CONSUMERS`. Other verdicts: `REJECTED_BY_REGISTRY_RULES`,
+  `BREAKS_DECLARED_CONSUMERS`.
 
 *(\*) Some operations are restricted for safety reasons.*
 

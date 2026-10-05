@@ -1,6 +1,7 @@
 package io.apicurio.registry.mcp;
 
 import com.microsoft.kiota.ApiException;
+import io.apicurio.registry.mcp.impact.ConsumerImpactReport.RulesCheck;
 import io.apicurio.registry.rest.client.RegistryClient;
 import io.apicurio.registry.rest.client.models.ArdFilter;
 import io.apicurio.registry.rest.client.models.ArdSearchQuery;
@@ -19,6 +20,7 @@ import io.apicurio.registry.rest.client.models.EditableGroupMetaData;
 import io.apicurio.registry.rest.client.models.EditableVersionMetaData;
 import io.apicurio.registry.rest.client.models.GroupMetaData;
 import io.apicurio.registry.rest.client.models.GroupSortBy;
+import io.apicurio.registry.rest.client.models.ProblemDetails;
 import io.apicurio.registry.rest.client.models.RuleType;
 import io.apicurio.registry.rest.client.models.RuleViolationProblemDetails;
 import io.apicurio.registry.rest.client.models.SearchedArtifact;
@@ -43,6 +45,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @ApplicationScoped
 public class RegistryService {
@@ -283,6 +286,18 @@ public class RegistryService {
             String versionContent,
             String versionContentType
     ) {
+        return checkSchemaRules(groupId, artifactId, versionContent, versionContentType).detail();
+    }
+
+    /**
+     * Dry-runs creating a version so the configured rules are evaluated without storing anything.
+     */
+    public RulesCheck checkSchemaRules(
+            String groupId,
+            String artifactId,
+            String versionContent,
+            String versionContentType
+    ) {
         var v = new CreateVersion();
         var c = new VersionContent();
         c.setContentType(versionContentType);
@@ -293,7 +308,7 @@ public class RegistryService {
             client().groups().byGroupId(groupId).artifacts().byArtifactId(artifactId).versions().post(v, r -> {
                 r.queryParameters.dryRun = true;
             });
-            return "Schema is valid and compatible.";
+            return new RulesCheck(true, "Schema is valid and compatible.");
         } catch (RuleViolationProblemDetails e) {
             StringBuilder sb = new StringBuilder();
             sb.append("Schema rules check failed: ").append(e.getDetail()).append("\n");
@@ -306,9 +321,27 @@ public class RegistryService {
                     sb.append("\n");
                 }
             }
-            return sb.toString();
+            return new RulesCheck(false, sb.toString());
         } catch (ApiException e) {
             throw new ToolCallException("Failed to test schema rules: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Returns the content of a version, or empty if the artifact or version does not exist.
+     */
+    public Optional<String> findVersionContent(
+            String groupId,
+            String artifactId,
+            String versionExpression
+    ) throws IOException {
+        try {
+            return Optional.of(getVersionContent(groupId, artifactId, versionExpression));
+        } catch (ProblemDetails e) {
+            if (e.getStatus() != null && e.getStatus() == 404) {
+                return Optional.empty();
+            }
+            throw e;
         }
     }
 

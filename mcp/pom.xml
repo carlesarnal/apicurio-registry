@@ -86,6 +86,12 @@
             <artifactId>apicurio-registry-schema-util-common</artifactId>
         </dependency>
 
+        <!-- Avro schema resolution for the consumer impact check. -->
+        <dependency>
+            <groupId>org.apache.avro</groupId>
+            <artifactId>avro</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>io.apicurio</groupId>
             <artifactId>apicurio-registry-schema-util-agents</artifactId>
