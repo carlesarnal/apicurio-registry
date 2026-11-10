@@ -51,7 +51,8 @@ docker compose up -d
 
 The first run builds the Maven plugin and the serdes client with [`build.sh`](build.sh) (a few
 minutes). `demo.sh` then deletes the example's data, runs every step below and checks it. It ends
-with `All checks passed.`
+with `All checks passed.`. It only deletes the groups and artifacts it creates, so it can run
+against a registry that holds other data.
 
 ## Step 3: The schemas
 
@@ -132,8 +133,11 @@ An AsyncAPI document can reference Avro: references cross artifact types.
 | `REWRITE` | Each reference replaced by the registry URL of its content; for JSON Schema, `"$ref": ".../groups/customers/artifacts/address.json/versions/1/content?references=REWRITE"` |
 
 ```bash
-call GET "/groups/orders-manual/artifacts/Order/versions/1/content?references=DEREFERENCE"
+call GET "/groups/com.example.orders/artifacts/Order/versions/1/content?references=DEREFERENCE"
 ```
+
+(This uses the `Order` registered in step 5: `demo.sh` deleted `common-manual/Money` in step 10, so
+`orders-manual/Order` can no longer be dereferenced.)
 
 Support depends on the type: Avro and Protobuf cannot be rewritten (400), XSD and WSDL cannot be
 dereferenced. The default can be changed with `apicurio.rest.artifact.references.default-handling`.

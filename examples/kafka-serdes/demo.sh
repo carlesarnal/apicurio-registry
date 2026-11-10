@@ -71,12 +71,13 @@ for _ in $(seq 1 30); do
   [ -z "$(example_topics)" ] && break
   sleep 1
 done
-for g in $(get "/groups?limit=100" | jq -r '.groups[].groupId'); do
-  if [ "$g" = default ]; then
-    curl -s -o /dev/null -X DELETE "$V3/groups/default/artifacts"
-  else
-    curl -s -o /dev/null -X DELETE "$V3/groups/$g"
-  fi
+# Only this example's groups and default-group artifacts: other data in the registry is left alone
+for g in com.example.orders inventory greetings; do
+  curl -s -o /dev/null -X DELETE "$V3/groups/$g"
+done
+for a in orders-value orders-headers-value shipments-value payments-value refunds-value customers-value \
+    orders-audited-value connect-lines-value; do
+  curl -s -o /dev/null -X DELETE "$V3/groups/default/artifacts/$a"
 done
 
 # ------------------------------------------------------------------------------ step 12 (setup)

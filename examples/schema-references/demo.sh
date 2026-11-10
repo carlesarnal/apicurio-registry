@@ -2,7 +2,8 @@
 # Registers schemas with references, then checks how the registry stores, lists, resolves and hashes
 # them, against the running example. Usage: ./demo.sh   (after `docker compose up -d`; requires
 # curl, jq and JDK 21 or later). Prints one ok/FAIL line per check, ends with "All checks passed."
-# and exits non-zero on failure. Safe to run again: it starts by deleting the example's data.
+# and exits non-zero on failure. Safe to run again: it starts by deleting the groups and artifacts
+# it creates (and only those).
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -66,10 +67,14 @@ fi
 version=$(sed -n 's:.*<version>\(.*\)</version>.*:\1:p' registration/pom.xml | head -1)
 
 echo "Resetting the example data..."
-for g in $(get "/groups?limit=100" | jq -r '.groups[].groupId'); do
-  if [ "$g" = default ]; then status DELETE /groups/default/artifacts > /dev/null; else status DELETE "/groups/$g" > /dev/null; fi
+# Only this example's groups and default-group artifacts: other data in the registry is left alone
+for g in orders-manual common-manual com.example.orders com.example.common com.example.billing customers \
+    events checked unchecked; do
+  status DELETE "/groups/$g" > /dev/null
 done
-status DELETE /admin/rules > /dev/null
+for a in invoices-value shipments-value com.example.common.Money com.example.billing.Customer money.proto; do
+  status DELETE "/groups/default/artifacts/$a" > /dev/null
+done
 docker compose exec -T kafka sh -c 'for t in invoices shipments; do /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:29092 --delete --if-exists --topic $t; done' > /dev/null 2>&1 || true
 
 # ------------------------------------------------------------------------------ step 4
