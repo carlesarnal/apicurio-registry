@@ -100,6 +100,8 @@
     <module>schema-util/agents</module>
     <module>schema-util/asyncapi</module>
     <module>schema-util/avro</module>
+    <module>schema-util/avro-kernel</module>
+    <module>schema-util/avro-kernel-confluent</module>
     <module>schema-util/common</module>
     <module>schema-util/graphql</module>
     <module>schema-util/iceberg</module>

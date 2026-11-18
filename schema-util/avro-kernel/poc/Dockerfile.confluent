@@ -1,0 +1,7 @@
+FROM confluentinc/cp-schema-registry:8.0.0
+COPY kernel.jar /opt/kernel/kernel.jar
+COPY adapter.jar /opt/kernel/adapter.jar
+# Prepend the same Avro runtime as Apicurio; CP 8.0.0 ships Avro 1.11.4.
+COPY avro.jar /opt/kernel/avro.jar
+ENV CLASSPATH="/opt/kernel/*"
+ENV SCHEMA_REGISTRY_OPTS="-Xlog:class+load=info:file=/tmp/kernel-classes.log"

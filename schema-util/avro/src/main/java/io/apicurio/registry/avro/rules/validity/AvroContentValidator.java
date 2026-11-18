@@ -1,7 +1,7 @@
 package io.apicurio.registry.avro.rules.validity;
 
 import io.apicurio.registry.avro.content.refs.AvroReferenceFinder;
-import io.apicurio.registry.avro.util.AvroParserAccessor;
+import io.apicurio.schema.kernel.AvroSchemaKernel;
 import io.apicurio.registry.content.TypedContent;
 import io.apicurio.registry.content.refs.ExternalReference;
 import io.apicurio.registry.rest.v3.beans.ArtifactReference;
@@ -9,7 +9,6 @@ import io.apicurio.registry.rules.validity.AbstractContentValidator;
 import io.apicurio.registry.rules.validity.ValidityLevel;
 import io.apicurio.registry.rules.violation.RuleViolationException;
 import io.apicurio.registry.types.RuleType;
-import org.apache.avro.Schema;
 
 import java.util.List;
 import java.util.Map;
@@ -35,8 +34,10 @@ public class AvroContentValidator extends AbstractContentValidator {
             Map<String, TypedContent> resolvedReferences) throws RuleViolationException {
         if (level == ValidityLevel.SYNTAX_ONLY || level == ValidityLevel.FULL) {
             try {
-                Schema.Parser parser = AvroParserAccessor.newParser(resolvedReferences);
-                parser.parse(content.getContent().content());
+                Map<String, String> references = resolvedReferences == null ? Map.of()
+                        : resolvedReferences.entrySet().stream().collect(Collectors.toMap(
+                                Map.Entry::getKey, entry -> entry.getValue().getContent().content()));
+                new AvroSchemaKernel().parse(content.getContent().content(), references, true);
             } catch (Exception e) {
                 throw new RuleViolationException("Syntax violation for Avro artifact.", RuleType.VALIDITY,
                         level.name(), e);

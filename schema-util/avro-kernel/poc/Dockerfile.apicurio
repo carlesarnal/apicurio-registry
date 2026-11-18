@@ -1,0 +1,7 @@
+# Use the supported re-augmentation mechanism so the classpath index discovers the new kernel.
+# The released server avoids coupling this POC to the branch's unrelated Quarkus migration.
+FROM quay.io/apicurio/apicurio-registry:3.3.3-mutable
+COPY --chown=1001:0 util.jar /deployments/quarkus-app/lib/main/io.apicurio.apicurio-registry-schema-util-avro-3.3.3.jar
+COPY --chown=1001:0 kernel.jar /deployments/quarkus-app/providers/kernel.jar
+RUN /deployments/build.sh --prune
+ENV JAVA_OPTS_APPEND="-Xlog:class+load=info:file=/tmp/kernel-classes.log"
